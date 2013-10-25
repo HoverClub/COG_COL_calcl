@@ -51,7 +51,19 @@
 
 	}
 
+/*
+<dd id="moreAttachments" class="smalltext">
+<a onclick="addAttachment(this); return false;" href="#">(more attachments)</a>
+</dd>
+*/
 	echo '
+	<script>
+	 function addOption(elementId)
+	 {
+	 setOuterHTML(elementById, \'<dd class="smalltext"><input type="file" size="60" name="attachment[]" id="attachment\' + current_attachment + \'" class="input_file" /> (<a href="javascript:void(0);" onclick="cleanFileInput(\'attachment\' + current_attachment + '\');">Clear Attachment</a>)' + '</dd><dd class="smalltext" id="moreAttachments"><a href="#" onclick="addAttachment(); return false;">(more attachments)<\' + \'/a><\' + \'/dd>\');
+	 }
+	 </script>
+	
 <form name="form" action="" method="post" id="creator">
 	<div class="content">
 		<dl>';

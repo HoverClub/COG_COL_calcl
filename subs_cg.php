@@ -411,5 +411,107 @@ function closestMatch($int, $arr)
 		else
 			return 0; // value is less than min in array
 }
-?>
-?>
+
+
+
+
+////////////////////////////////////////////////// Functions from excell sheet CofG Calculator-Rev0
+
+
+/*
+Function Area_Polynomial(x1, y1, x2, y2, x3, y3, x4, y4, x5, $y5, x6, y6, x7, y7, x8, y8, x9, y9) As Double
+
+a1 = x1 * y2 - x2 * y1
+a2 = x2 * y3 - x3 * y2
+a3 = x3 * y4 - x4 * y3
+a4 = x4 * y5 - x5 * y4
+a5 = x5 * y6 - x6 * y5
+a6 = x6 * y7 - x7 * y6
+a7 = x7 * y8 - x8 * y7
+a8 = x8 * y9 - x9 * y8
+    
+Area_Polynomial = Abs((1 / 2) * (a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8))
+
+End Function
+
+Function Area_Circular_Segment(Chord As Double, Radius As Double) As Double
+
+Alpha = 2 * ArcSin(Chord / (2 * Radius))
+Area_Circular_Segment = (Radius ^ 2 / 2) * (Alpha - Sin(Alpha))
+
+End Function
+
+Function Centroid_Circular_Segment(Chord, Radius, Offset)
+
+Alpha = 2 * ArcSin(Chord / (2 * Radius))
+Centroid_Circular_Segment = Offset - ((4 * Radius * (Sin(Alpha / 2)) ^ 3) / (3 * (Alpha - Sin(Alpha))) - Radius * Cos(Alpha / 2))
+
+End Function
+
+Function Centroid_X_Polynomial(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7, x8, y8, x9, y9, X_Offset, angle)
+
+m1 = (x1 + x2) * (x1 * y2 - x2 * y1)
+m2 = (x2 + x3) * (x2 * y3 - x3 * y2)
+m3 = (x3 + x4) * (x3 * y4 - x4 * y3)
+m4 = (x4 + x5) * (x4 * y5 - x5 * y4)
+m5 = (x5 + x6) * (x5 * y6 - x6 * y5)
+m6 = (x6 + x7) * (x6 * y7 - x7 * y6)
+m7 = (x7 + x8) * (x7 * y8 - x8 * y7)
+m8 = (x8 + x9) * (x8 * y9 - x9 * y8)
+
+Area = Area_Polynomial(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7, x8, y8, x9, y9)
+
+Centroid_X_Polynomial = X_Offset + Abs((1 / (6 * Area)) * (m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8)) * Cos(angle * Pi / 180)
+
+End Function
+
+Function ArcSin(X As Double) As Double
+    ArcSin = Atn(X / Sqr(-X * X + 1))
+End Function
+*/
+
+
+function Area_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9)
+{
+	$a1 = $x1 * $y2 - $$x2 * $y1;
+	$a2 = $x2 * $y3 - $x3 * $y2;
+	$a3 = $x3 * $y4 - $x4 * $y3;
+	$a4 = $x4 * $y5 - $x5 * $y4;
+	$a5 = $x5 * $y6 - $x6 * $y5;
+	$a6 = $x6 * $y7 - $x7 * $y6;
+	$a7 = $x7 * $y8 - $x8 * $y7;
+	$a8 = $x8 * $y9 - $x9 * $y8;
+		
+	return abs((1 / 2) * ($a1 + $a2 + $a3 + $a4 + $a5 + $a6 + $a7 + $a8));
+
+}
+
+function Area_Circular_Segment($chord, $Radius)
+{
+	$alpha = 2 * asin($chord / (2 * $radius));
+	return ($radius ^ 2 / 2) * ($alpha - sin($alpha));
+}
+
+function Centroid_Circular_Segment($chord, $radius, $offset)
+{
+	$alpha = 2 * asin($chord / (2 * $radius));
+	return $offset - ((4 * $radius * pow((sin($alpha / 2)), 3)) / (3 * ($alpha - sin($alpha))) - $radius * cosCos($alpha / 2));
+}
+
+function Centroid_X_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9, $x_offset, $angle)
+{
+	$m1 = ($x1 + $x2) * ($x1 * $y2 - $x2 * $y1);
+	$m2 = ($x2 + $x3) * ($x2 * $y3 - $x3 * $y2);
+	$m3 = ($x3 + $x4) * ($x3 * $y4 - $x4 * $y3);
+	$m4 = ($x4 + $x5) * ($x4 * $y5 - $x5 * $y4);
+	$m5 = ($x5 + $x6) * ($x5 * $y6 - $x6 * $y5);
+	$m6 = ($x6 + $x7) * ($x6 * $y7 - $x7 * $y6);
+	$m7 = ($x7 + $x8) * ($x7 * $y8 - $x8 * $y7);
+	$m8 = ($x8 + $x9) * ($x8 * $y9 - $x9 * $y8);
+
+	$area = Area_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9);
+
+	return $x_offset + abs((1 / (6 * $area)) * ($m1 + $m2 + $m3 + $m4 + $m5 + $m6 + $m7 + $m8)) * cos($angle * pi / 180);
+
+}
+

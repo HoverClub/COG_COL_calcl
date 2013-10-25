@@ -1,8 +1,14 @@
 <?php
+/////// DEBUG ONLY /////////
+include('../SSI.php');
+/////// DEBUG ONLY /////////
+
+
 
 /*
 	Centre of gravity/lift Calculator
 	----------------------------------
+NOTE: usues same database as the performance calculator
 	
  has new form data been entered?
  		yes->validate the data 
@@ -29,14 +35,14 @@ if (!$is_club_member)
 	return true;
 }
 
-include('CGsubs_input.php');
+include('subs_cg.php');
 
 global $data, $err_array, $selName; 	// declare these as global at next higher level so 
 								// it's available to functions in this code!!!
 		// static variable definitions:
 		$roAir = '1.2266'; // air density
 		$roWater = '1025';  // water density
-		$showtable = false; // don;t show detailed drag table to normal viwers
+		$showtable = false; // don';t show detailed drag table to normal viewers
 /*
 	// create the table craftdesign if it doesn't exist
 	$result = $smcFunc['db_query']('', "
@@ -69,12 +75,21 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 		prop BOOLEAN,
 		fanDiam VARCHAR(5) NOT NULL,
 		tPower VARCHAR(5) NOT NULL,
+
+		'hull'=>'', 
+		'engines'=>'', 
+		'misc'=>'', 
+		'pass_forward'=>'', 
+		'pass_rearward'=>''
+		'thrust_max'=>'', 
+		'thrust_cruise'=>'', 
+		'dims',
+
 		PRIMARY KEY(userid, craftName)
 		)
 	");
 */
 
-	$data['userid'] = $user_info['id'];
 	// these values muts be coverted from numeric to string/bool when 
 	// reading or writing to the database to maintain compatibility
 	$twinFanArray = array('1'=>'twinEng','2'=>'twinFan', '3'=>'int');
@@ -89,7 +104,8 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 	$data['prop'] = '2';
 	
 	// load default craft data first
-	$data['hullLength']  = '3.048';
+	$data['hullLength']  = 	array('title' => 'HULL LENGTH', 'data' => '3,048');
+
 	$data['hullWidth']  = '1.8228';
 	$data['designWeight']  = '330';
 	$data['cruiseWeight']  = '300';
@@ -108,6 +124,154 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 	$data['fanDiam']  = '0.9';
 	$data['tPower']  = '21';
 
+	$data['userid'] = $user_info['id'];
+	$data['hull'] = array(
+		'title' => 'HULL COMPONENTS',
+		'data' => array(
+				array('title' => 'Hull', 'M' => '0', 'X' => '0'),
+				array('title' => 'Duct', 'M' => '0', 'X' => '0'),
+				array('title' => 'Elevator', 'M' => '0', 'X' => '0'),
+				array('title' => 'Elevator Bars', 'M' => '0', 'X' => '0'),
+				array('title' => 'Rudder Bars', 'M' => '0', 'X' => '0'),
+				array('title' => 'Rudders', 'M' => '0', 'X' => '0'),
+				)
+		);
+	$data['engines'] = array(
+		'title' => 'ENGINES',
+		'data' => array(
+				array('title' => 'Thrust Engine', 'M' => '0', 'X' => '0'),
+				array('title' => 'Thrust fan', 'M' => '0', 'X' => '0'),
+				array('title' => 'Thrust fan hub', 'M' => '0', 'X' => '0'),
+				array('title' => 'Thrust fan pulleys', 'M' => '0', 'X' => '0'),
+				array('title' => 'Thrust fan frame', 'M' => '0', 'X' => '0'),
+				array('title' => 'Thrust fan guard', 'M' => '0', 'X' => '0'),
+				array('title' => 'Lift Engine', 'M' => '0', 'X' => '0'),
+				array('title' => 'Lift fan', 'M' => '0', 'X' => '0'),
+				array('title' => 'Lift fan hub', 'M' => '0', 'X' => '0'),
+				array('title' => 'Lift fan pulleys', 'M' => '0', 'X' => '0'),
+				array('title' => 'Lift fan guard', 'M' => '0', 'X' => '0'),
+				array('title' => 'Engine cover', 'M' => '0', 'X' => '0'),
+			)
+		);
+	$data['misc'] = array( 
+		'title' => 'MISCELLANEOUS',
+		'data' => array(
+				array('title' => 'Skirt', 'M' => '0', 'X' => '0'),
+				array('title' => 'Windscreen', 'M' => '0', 'X' => '0'),
+				array('title' => 'Instruments', 'M' => '0', 'X' => '0'),
+				array('title' => 'Radio', 'M' => '0', 'X' => '0'),
+				array('title' => 'GPS', 'M' => '0', 'X' => '0'),
+				array('title' => 'Steering column', 'M' => '0', 'X' => '0'),
+				array('title' => 'Steering wheel/bars', 'M' => '0', 'X' => '0'),
+				array('title' => 'Battery', 'M' => '0', 'X' => '0'),
+			)
+		);
+	$data['pass_forward'] = array(
+		'title' => 'PASSENGERS FULLY FORWARD',
+		'data' => array(
+				array('title' => 'Driver', 'Skirt', 'M' => '0', 'X' => '0'),
+				array('title' => 'Passenger (next to driver)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Fuel (litres)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Equipment & tools etc.', 'M' => '0', 'X' => '0'),
+			)
+		); 
+	$data['pass_rearward'] = array(
+		'title' => 'PASSENGERS FULLY REARWARD',
+		'data' => array(
+				array('title' => 'Driver', 'M' => '0', 'X' => '0'),
+				array('title' => 'Passengers (next to driver)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Passenger (row 2)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Passegneger (row 3)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Fuel (litres)', 'M' => '0', 'X' => '0'),
+				array('title' => 'Equipment & tools etc.', 'M' => '0', 'X' => '0'),
+			)
+		);
+	$data['thrust_max'] = array('title' => 'MAXIMUM THRUST', 'M' => '0', 'X' => '0');
+	$data['thrust_cruise'] = array('title' => 'THRUST AT CRUISE SPEED', 'M' => '0', 'X' => '0');
+	$data['thrust_min'] = array('title' => 'MINIMUM THRUST', 'M' => '0', 'X' => '0');
+	$data['dims'] = array(
+		'title' => 'HULL SIZES',
+		'data' => array(
+				array('title' => 'Hull length',  'X' => '0'),
+				array('title' => 'Stern corner chamfer',  'X' => '0'),
+				array('title' => 'Bow to fornt of bow skirt ',  'X' => '0'),
+				array('title' => 'Stern corner chmfer',  'X' => '0'),
+				array('title' => 'Stern corner chmfer',  'X' => '0'),
+				array('title' => 'Stern corner chmfer',  'X' => '0'),
+				array('title' => 'Stern corner chmfer',  'X' => '0'),
+			)
+		);
+	
+
+
+//////////////////////// DEBUG
+
+echo '
+	<table>
+		<tbody>
+	';
+foreach ($data as $group => $val) 
+{
+	if (is_array($val))
+	{
+		if (isset($val['data']))
+		{
+			if (is_array($val['data']))
+			{
+				echo '
+				<tr>
+					<td colspan="3">' . $val['title'] . '</td>
+				</tr>
+				<tr>
+					<th>Name</th><th>Weight (Kg)</th><th>Distance from bow</th>
+				</tr>';
+				foreach ($val['data'] as $index => $gdata)
+					echo '
+						<tr>
+							<td><input type="text" name="' . $group . '[' . $index . '][name]" value="' . $gdata['title'] . '"/></td>
+							<td><input type="text" name="' . $group . '[' . $index . '][M]" size="4" value="' . $gdata['M'] . '"/>
+							<td><input type="text" name="' . $group . '[' . $index . '][X]" size="8" value="' . $gdata['X'] . '"/></td>
+						</tr>';
+			}
+			else
+			{
+					echo '
+						<tr>
+						<td>' . $val['title'] . '</td>
+						<td><input type="text" name="' . $group . '" value="' . $val['data'] . '"/></td>
+						<td>&nbsp;</td>
+					</tr>';
+			}
+		}
+		else
+			echo '
+				<tr>
+					<th>&nbsp;</th><th>Weight (Kg)</th><th>Distance from bow</th>
+				</tr>
+				<tr>
+					<td>' . $val['title'] . '</td>
+				<td><input type="text" name="' . $group . '[M]" size="4" value="' . $val['M'] . '"/>
+				<td><input type="text" name="' . $group . '[X]" size="8" value="' . $val['X'] . '"/></td>
+			</tr>';
+	}
+	else
+		echo '
+			<tr>
+			<td>' . $group . '</td>
+			<td><input type="text" name="' . $group . '" value="' . $val . '"/></td>
+			<td>&nbsp;</td>
+		</tr>';
+}
+echo '	
+		</tbody>
+	</table>';
+		
+die();
+//////////////////////// DEBUG
+
+
+
+
 	// see if a craft has been selected
 	if (isset($_POST['selName']))		
 	{
@@ -124,8 +288,10 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 	
 	// get list of designs for this user
 	$craftList = array();
-	$result = $smcFunc['db_query']('', 'SELECT craftName FROM {db_prefix}hcb_craftdesign WHERE userid = \'' . $user_info['id'] . '\' ORDER BY craftName');
-	while ($res = $smcFunc['db_fetch_assoc']($result)) $craftList[] = $res['craftName'];
+	$result = $smcFunc['db_query']('', 'SELECT craftName, hull FROM {db_prefix}hcb_craftdesign WHERE userid = \'' . $user_info['id'] . '\' ORDER BY craftName');
+	while ($res = $smcFunc['db_fetch_assoc']($result)) 
+		if (isset($res['hull'])) // check we've got CoG data!
+			$craftList[] = $res['craftName'];
 
 	//check if the calculate button was clicked
 	if (isset($_POST['docalc']))
@@ -134,8 +300,9 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 		$err_array = array(); // array for any validation error strings
 
 		get_post('craftName');
-		if ($data['craftName'] == '') $err_array['craftName'] = 'please enter a name for this craft design';
-		// check if the user is accidentally over writing an existing craft type
+		if ($data['craftName'] == '') 
+			$err_array['craftName'] = 'please enter a name for this craft design';
+		// check if the user is accidentally over-writing an existing craft type
 		if ($selName == 'New' AND in_array($data['craftName'],$craftList))
 			$err_array['craftName'] = 'this design already exists in the database - please enter a unique name'; 
 
@@ -145,16 +312,19 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 		get_post('directFeed','1');
 		get_post('prop','2');
 		
-		if ($propArray[$data['prop']] AND $twinFanArray[$data['twinFan']]=='int') $err_array['prop'] = 'You can\'t use a prop for thrust in an integrated craft';
+		if ($propArray[$data['prop']] AND $twinFanArray[$data['twinFan']]=='int') 
+			$err_array['prop'] = 'You can\'t use a prop for thrust in an integrated craft';
 
 		// validate the form numeric input data
 		validatenumber('hullLength','200','1');
 		validatenumber('hullWidth','100','0.1');
-		if ($data['hullWidth'] > $data['hullLength']) $err_array['hullWidth'] = 'Hull width must be LESS than the length!';
+		if ($data['hullWidth'] > $data['hullLength']) 
+			$err_array['hullWidth'] = 'Hull width must be LESS than the length!';
 		
 		validatenumber('designWeight','9999','1');
 		validatenumber('cruiseWeight','9999','1');
-		if ($data['cruiseWeight'] > $data['designWeight']) $err_array['cruiseWeight'] = 'Cruise weight must be less than the maximum design weight';
+		if ($data['cruiseWeight'] > $data['designWeight']) 
+			$err_array['cruiseWeight'] = 'Cruise weight must be less than the maximum design weight';
 		
 		validatenumber('maxSpeed','100','10');
 		validatenumber('frontalArea','100','0.5');
@@ -195,26 +365,25 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 			$showresult = true; // do the calcs and display the result
 			$data['date'] = time(); // update modify date
 			$data = array_filter($data); // remove null/false valuse
-			$ddata = $data ; // make copy
 			// convert data types for database save
-			$ddata['twinFan'] = $twinFanArray[$data['twinFan']]; // convert value
-			$ddata['skirt'] = $skirtArray[$data['skirt']]; // convert value
-			$ddata['rectShape'] = $rectShapeArray[$data['rectShape']]; // convert value
-			$ddata['directFeed'] = $directFeedArray[$data['directFeed']]; // convert value
-			$ddata['prop'] = $propArray[$data['prop']]; // convert value
+			$data['twinFan'] = $twinFanArray[$data['twinFan']]; // convert value
+			$data['skirt'] = $skirtArray[$data['skirt']]; // convert value
+			$data['rectShape'] = $rectShapeArray[$data['rectShape']]; // convert value
+			$data['directFeed'] = $directFeedArray[$data['directFeed']]; // convert value
+			$data['prop'] = $propArray[$data['prop']]; // convert value
 			
-			$rep_keys = array_fill_keys(array_keys($ddata),'string-255'); // array of variable types 	
-
+			$rep_keys = array_fill_keys(array_keys($data),'string'); // column names as keys 	
 			$smcFunc['db_insert']('replace',
 				"{db_prefix}hcb_craftdesign",
 				$rep_keys,
-				array_values($ddata),
+				array_values($data),
 				''
 			);
 			$showresult = true; // do the calcs and display the result as we have got valid data
 			$result = $smcFunc['db_query']('', " SELECT craftName FROM {db_prefix}hcb_craftdesign WHERE userid = " . $user_info['id']);
 			$craftList = array(); // reload list to include new craft design
-			while ($res = $smcFunc['db_fetch_assoc']($result)) $craftList[]=$res['craftName'];
+			while ($res = $smcFunc['db_fetch_assoc']($result)) 
+				$craftList[]=$res['craftName'];
 			$selName = $data['craftName']; // use new name
 			$saved = true;
 		}
@@ -230,14 +399,13 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 					' SELECT * FROM {db_prefix}hcb_craftdesign 
 						WHERE userid = ' . $user_info['id'] . ' 
 						AND craftName = \'' . $smcFunc['db_escape_string']($selName) . '\'');
-				$ddata = $smcFunc['db_fetch_assoc']($result);  // load data for this design
-							// convert data types for database save
-				$data = $ddata; // copy to array
-				$data['twinFan'] = array_search($ddata['twinFan'],$twinFanArray); // convert value
-				$data['skirt'] = array_search($ddata['skirt'],$skirtArray); // convert value
-				$data['rectShape'] = array_search($ddata['rectShape'],$rectShapeArray); // convert value
-				$data['directFeed'] = array_search($ddata['directFeed'],$directFeedArray); // convert value
-				$data['prop'] = array_search($ddata['prop'],$propArray); // convert value
+				$data = $smcFunc['db_fetch_assoc']($result);  // load data for this design
+				// convert data types for database save
+				$data['twinFan'] = array_search($data['twinFan'],$twinFanArray); // convert value
+				$data['skirt'] = array_search($data['skirt'],$skirtArray); // convert value
+				$data['rectShape'] = array_search($data['rectShape'],$rectShapeArray); // convert value
+				$data['directFeed'] = array_search($data['directFeed'],$directFeedArray); // convert value
+				$data['prop'] = array_search($data['prop'],$propArray); // convert value
 				if (empty($data))
 				{
 					echo !"FATAL ERROR - unable to locate the data for the $selName craft!";
@@ -258,5 +426,6 @@ global $data, $err_array, $selName; 	// declare these as global at next higher l
 
 	$dis = ''; // view only if non-empty
 	
-	require('calc_output.php');
+	include('subs_input.php');
+	require('CGcalc_output.php');
 ?>
