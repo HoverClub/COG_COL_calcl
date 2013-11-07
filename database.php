@@ -30,6 +30,7 @@ elseif (!defined('SMF'))
 		)
 	");
 
+
 	// create the table craftdesign if it doesn't exist
 	$smcFunc['db_query']('', "
 		CREATE TABLE IF NOT EXISTS 
@@ -40,9 +41,6 @@ elseif (!defined('SMF'))
 		date INT(10) NOT NULL,
 		rectShape BOOLEAN,
 		hullLength VARCHAR(10) NOT NULL,
-		hullWidth VARCHAR(10) NOT NULL,
-		designWeight VARCHAR(10) NOT NULL,
-		cruiseWeight VARCHAR(10) NOT NULL,
 		maxSpeed VARCHAR(5) NOT NULL,
 		frontalArea VARCHAR(10) NOT NULL,
 		dragCoeff VARCHAR(5) NOT NULL,
@@ -71,24 +69,38 @@ elseif (!defined('SMF'))
 		'engines'=>'', 
 		'misc'=>'', 
 		'pass_forward'=>'', 
-		'pass_rearward'=>''
-		'thrust_max'=>'', 
-		'thrust_cruise'=>'', 
-		'thrust_min'=>'', 
-		'dims',
-		,);
-	$request = $smcFunc['db_query']('', "SELECT * FROM {db_prefix}hcb_craftdesign)");
-	while ($row = $smcFunc['db_fetch_assoc']($request))
-		if (array_key_exists(key($row), $newcols))
-			unset($newrows[key($row)]);
-	
+		'pass_rearward'=>'',
+		'sternChamf'=>'',
+		'bowskirtfront'=>'',
+		'dividerfront'=>'',
+		'bowradius'=>'',
+		'divradius'=>'',
+		'contactoffset'=>'',
+		'thrustY'=>'',
+	);
+	$_REQUEST  = $smcFunc['db_query']('', "SELECT * FROM {db_prefix}hcb_craftdesign LIMIT 1");
+	$row = $smcFunc['db_fetch_assoc']($_REQUEST );
+	foreach ($row as $key => $i)
+		unset($newcols[$key]);
+
 	if (!empty($newcols))
 		// add extra columns for craft CoG calculator
 		$smcFunc['db_query']('', "
-			ALTER TABLE {db_prefix}hcb_craftdesign ADD `('" . implode('\',\'', array_keys($newcols)) . "') TEXT NOT NULL
+			ALTER TABLE {db_prefix}hcb_craftdesign ADD COLUMN(" . implode(' TEXT NOT NULL, ', array_keys($newcols)) . " TEXT NOT NULL)
 		");
 		
-	$smcFunc['db_free_result']($request);
+	// get rid of any old columns we don't need - if they exist
+	// $row has a list of all column
+	if (array_key_exists('cruiseWeight', $row)) 
+		$_REQUEST  = $smcFunc['db_query']('', "
+				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN cruiseWeight");
+	if (array_key_exists('designWeight', $row)) 
+		$_REQUEST  = $smcFunc['db_query']('', "
+				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN designWeight");
+	if (array_key_exists('rectShape', $row))
+		$_REQUEST  = $smcFunc['db_query']('', "
+				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN rectShape");
+
 	
 	// create the hovercraft database table if it doesn't exist
 	$result = $smcFunc['db_query']('', "

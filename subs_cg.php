@@ -5,38 +5,152 @@
 
 	basic caculations
 	
+	we need to calculate 
+			2)	then the cushion area and perimeer (for lift pressure, etc.) from the skirt geometry
+			3) then do the performan  calcs....
+			5) followed by the CG calc using the calculated thrust power (max, cruise, min)
 */
+	
+	$designWeight = $cruiseWeight = array('mass' => 0, 'momentX' => 0);
+	foreach (array('hull', 'engines', 'misc', 'pass_rearward', 'pass_forward') as $group)
+		foreach ($data[$group] as $w)
+		{
+			if (!empty($w['qty']))
+			{
+//				$forward['mass'] += $w['qty'] * $w['M'];
+//				$forward['momentX'] += $forward['mass'] * $w['X'];
+				switch ($group)
+				{
+					case 'pass_rearward':
+						$designWeight['mass'] += $w['qty'] * $w['M'] * 9.81;
+						$designWeight['momentX'] += $w['qty'] * $w['M'] * $w['X'] * 9.81;
+						break;
+					case 'pass_forward':
+						$cruiseWeight['mass'] += $w['qty'] * $w['M'] * 9.81;
+						$cruiseWeight['momentX'] += $w['qty'] * $w['M'] * $w['X'] * 9.81;
+						break;
+					default:
+						$cruiseWeight['mass'] += $w['qty'] * $w['M'] * 9.81;
+						$cruiseWeight['momentX'] += $w['qty'] * $w['M'] * $w['X'] * 9.81;
+						$designWeight['mass'] += $w['qty'] * $w['M'] * 9.81;
+						$designWeight['momentX'] += $w['qty'] * $w['M'] * $w['X'] * 9.81;
+				}	
+			}
+		}
+	if ($designWeight['mass'] == 0) 
+		$err_array['pass_rearward'][0]['qty'] = 'Rearward case total weight must be greater than zero';
+	if ($cruiseWeight['mass'] == 0) 
+		$err_array['pass_forward'][0]['qty'] = 'Forward case total weight must be greater than zero';
+	if ($cruiseWeight > $designWeight) 
+		$err_array['pass_rearward'][0]['qty'] = 'Forward case total weight must be less than the rearward total weight';
 
-	if ($rectShapeArray[$data['rectShape']])
+dbug($designWeight);
+dbug($cruiseWeight);
+//dbug($data);			
+
+	// now calculate the cushion ares and perimeter from the hull/skirt dimensions supplied
+	
+	// first make up array of coords for eaxh section of the skirt profile
+	// we start at the lower right corner (nearest the bow leaving the bow-facing side open and work clockwise
+	// leaving the front-facing side open
+	$coords = array();
+	$bowroot = $data['bowradius'] - sqrt(pow($data['bowradius'],2) - (pow($data['hullWidth'],2) / 4));
+	// front right corner first
+	if (!empty($data['dividerfront']))
 	{
-		$perimeter = 2 * ($data['hullLength'] + $data['hullWidth']) * 0.95;
-		$cushionArea = $data['hullLength'] * $data['hullWidth'] * 0.9;
+		$divroot = $data['divradius'] - sqrt(pow($data['divradius'],2) - (pow($data['hullWidth'],2) / 4));
+		$coords['front_cushion'][] = array('x'=> $bowroot + $data['bowskirtfront'], 'y'=>$data['contactoffset']);
+		$coords['front_cushion'][] = $coords['rear_cushion'][] = array('x'=> $divroot + $data['dividerfront'], 'y'=> $data['contactoffset']);
+	}
+	else
+		$coords['rear_cushion'][] = array('x'=> $bowroot + $data['bowskirtfront'], 'y'=>$data['contactoffset']);
+
+	// rear corners(s) now
+	if (empty($data['sternChamf']))
+	{
+		$coords['rear_cushion'][] = array('x'=>$data['hullLength'] - $data['contactoffset'], 'y'=>$data['contactoffset']);
+		$coords['rear_cushion'][] = array('x'=>$data['hullLength'] - $data['contactoffset'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
 	}
 	else
 	{
-		$perimeter = (($data['hullLength']-$data['hullWidth'])*2)+(pi() * $data['hullWidth']) * 0.95;
-		$cushionArea = 	((($data['hullLength'] - $data['hullWidth']) * $data['hullWidth']) + (pi() * (pow($data['hullWidth']/2,2)))) * 0.9;
+		$sternoffset = sqrt(pow($data['sternChamf'], 2) / 2);
+		$coords['rear_cushion'][] = array('x'=> $data['hullLength'] - $data['contactoffset'] - $sternoffset, 'y'=>$data['contactoffset']);
+		$coords['rear_cushion'][] = array('x'=>$data['hullLength'] - $data['contactoffset'], 'y'=>$data['contactoffset'] + $sternoffset);
+		$coords['rear_cushion'][] = array('x'=>$data['hullLength'] - $data['contactoffset'], 'y'=>$data['hullWidth'] - $data['contactoffset'] - $sternoffset);
+		$coords['rear_cushion'][] = array('x'=> $data['hullLength'] - $data['contactoffset'] - $sternoffset, 'y'=>$data['hullWidth'] - $data['contactoffset']);
+	}
+	
+	// front top corners
+	if (!empty($data['dividerfront']))
+	{
+		$coords['front_cushion'][] = $coords['rear_cushion'][] = array('x'=> $divroot + $data['dividerfront'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
+
+		$coords['front_cushion'][] = array('x'=> $bowroot + $data['bowskirtfront'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
+	}
+	else // no partition so only one cushion
+		$coords['rear_cushion'][] = array('x'=> $bowroot + $data['bowskirtfront'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
+	
+	// cushion area
+	$divsegArea = Area_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['divradius']); 
+	$bowsegArea = Area_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);
+	$frontCushionArea = 0;
+	$perimeter_rear = Perimeter_Polygon($coords['rear_cushion']); // not clsoed at front yet!
+	if (!empty($data['dividerfront']))
+	{
+		$rearCushionArea = Area_Polynomial($coords['rear_cushion']) + $divsegArea;
+		$frontCushionArea = Area_Polynomial($coords['front_cushion']) - $divsegArea + $bowsegArea;
+		$perimeter_front = Perimeter_Polygon($coords['front_cushion']) + Perimeter_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);
+		
+	}
+	else
+	{
+		$rearCushionArea = Area_Polynomial($coords['rear_cushion']) + $bowsegArea; // bow seg is front of main cusion if no divider
+		$perimeter_rear += Perimeter_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);  // close trhe rear perimeter as there isn't a front!
 	}
 
-	$designCushionPressure = $data['designWeight']* 9.81 / $cushionArea;
-	$cruiseCushionPressure = $data['cruiseWeight']* 9.81 / $cushionArea;
+//dbug($coords);
+//dbug('rear perimeter: ' . $perimeter_rear . ' front = ' . $perimeter_front);
+//dbug('total perimeter: ' . ($perimeter_rear + $perimeter_front));
+//dbug('total area: ' . ($rearCushionArea + $frontCushionArea));
+//dbug('rear cushion: ' . $rearCushionArea . ' ---> ' . Area_Polynomial($coords['rear_cushion']));
+//dbug('front cushion: ' . $frontCushionArea);
+//dbug( ' rear circ seg area ' . $divsegArea);
+//dbug( ' front circ seg area ' . $bowsegArea);
 
-	$designLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $designCushionPressure,$roAir, $skirtArray[$data['skirt']]);
-	$cruiseLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $cruiseCushionPressure,$roAir, $skirtArray[$data['skirt']]);
+
+	// now calc centroid for each area
+	foreach ($coords as $key=>$coord)
+	{
+	
+	}
+	
+	$cushionArea = $rearCushionArea + $frontCushionArea;
+	$perimeter = $perimeter_rear + (!empty($perimeter_front) ? $perimeter_front : 0);
+		
+	if ($cushionArea <= 0)
+		$cushionArea = 1;
+		
+
+	$designWeight['cushionPress'] = $designWeight['mass'] / $cushionArea;
+	$cruiseWeight['cushionPress'] = $cruiseWeight['mass'] / $cushionArea;
+dbug($designWeight);
+
+	$designLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $designWeight['cushionPress'],$roAir, $data['skirt']);
+	$cruiseLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $cruiseWeight['cushionPress'],$roAir, $data['skirt']);
 	
 	$feedArea = (isset($data['hole1qty']) ? ($data['hole1qty'] * pi() * pow($data['hole1size'],2) /4) : 0) 
 				+  (isset($data['hole2qty']) ? ($data['hole2qty'] * pi() * pow($data['hole2size'],2) /4) : 0) 
 				+ (isset($data['hole3qty']) ? ($data['hole3qty'] * pi() * pow($data['hole3size'],2) /4) : 0); 
 				
-	$designLiftPower = LiftPower($designCushionPressure, $designLiftAirFlow, $feedArea, $roAir, $directFeedArray[$data['directFeed']], $data['reserve'] / 100, $skirtArray[$data['skirt']]);  
-	$cruiseLiftPower = LiftPower($cruiseCushionPressure, $cruiseLiftAirFlow, $feedArea, $roAir, $directFeedArray[$data['directFeed']], $data['reserve'] / 100, $skirtArray[$data['skirt']]);  
+	$designLiftPower = LiftPower($designWeight['cushionPress'], $designLiftAirFlow, $feedArea, $roAir, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
+	$cruiseLiftPower = LiftPower($cruiseWeight['cushionPress'], $cruiseLiftAirFlow, $feedArea, $roAir, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
 
 	// calculate power available to thrust in W
 	$maxThrustPower = $data['tPower'] * 745.699872;
 	$cruiseThrustPower = $data['tPower'] * 745.699872;
 
 	// adjust thrust engine power for twin fan craft (integrated is auto adjusted by splitter height)
-	if ($twinFanArray[$data['twinFan']] == 'twinFan')
+	if ($data['twinFan'] == 'twinFan')
 		$maxThrustPower = $maxThrustPower - $designLiftPower; // single engine, two fans
 	if ($maxThrustPower<0)
 		$maxThrustPower = 0;  //not enough power for thrust!!!
@@ -174,8 +288,8 @@
 		$drag[$key]['Cruise Mom Drag'] = momentumDrag($drag[$key]['m/s'], $cruiseLiftAirFlow, $roAir);
 		$drag[$key]['Profile Drag'] = profileDrag($drag[$key]['m/s'], $data['frontalArea'], $data['dragCoeff'], $roAir);
 // fudge factor for wave drag is 2!!
-		$drag[$key]['Max Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $designCushionPressure, $cushionArea, $roWater);
-		$drag[$key]['Cruise Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $cruiseCushionPressure, $cushionArea, $roWater);
+		$drag[$key]['Max Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $designWeight['cushionPress'], $cushionArea, $roWater);
+		$drag[$key]['Cruise Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $cruiseWeight['cushionPress'], $cushionArea, $roWater);
 
 // estimate is that wetting drag is between 35% (perfect trim & skirts) and 55% (bad trim) of the total drag (Y&B)
 // fudge factor is 45% to account for slightly rougher water and less perfect trim
@@ -183,8 +297,8 @@
 //			$drag[$key]['Wetting Drag'] = 0.45 * ($drag[$key]['Max Mom Drag'] + $drag[$key]['Profile Drag'] + $drag[$key]['Max Wave Drag']);
 		$drag[$key]['Wetting Drag'] = 0.55 * ($drag[$key]['Max Mom Drag'] + $drag[$key]['Max Wave Drag']);
 
-// echo 'Max Thrust', $maxThrustPower, '<br>', $data['fanDiam'], '<br>', $propArray[$data['prop']], '<br>', $drag[$key]['m/s'], '<br>', $roAir, '<br>', $twinFanArray[$data['twinFan']], '<br>', (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0), '<br>';
-		$drag[$key]['Max Thrust'] = thrust($maxThrustPower, $data['fanDiam'], $propArray[$data['prop']], $drag[$key]['m/s'], $roAir, $twinFanArray[$data['twinFan']], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));
+ //echo 'Max Thrust  ', $maxThrustPower, '<br>', $data['fanDiam'], '<br>', $data['prop'], '<br>', $drag[$key]['m/s'], '<br>', $roAir, '<br>', $data['twinFan'], '<br>', (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0), '<br>' . thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $roAir, $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));		
+		$drag[$key]['Max Thrust'] = thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $roAir, $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));
 //	$drag[$key]['Cruise thrust'] = thrust($cruiseThrustPower, $data['fanDiam'], $propArray[$data['prop']], $drag[$key]['m/s'], $roAir, $twinFanArray[$data['twinFan']] , $data['splitterHeight']);
 	}
 
@@ -198,6 +312,7 @@
 	$prevDrags[] = array('drag'=>-1, 'mph'=>0, 'key'=>0);
 	$prevDrags[] = array('drag'=>-1, 'mph'=>0, 'key'=>0);
 	$maxPeak = array('drag'=>-1,'mph'=>0, 'key'=>0);
+	$peaks = array();
 
 	foreach ($drag as $key=>$d)
 	{
@@ -248,6 +363,60 @@
 		}
 	}
 
+	
+	// now calce the moments for each weight item
+	$momentX = $mass = array();
+	foreach (array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward') as $group)
+	{
+		if (isset($data[$group]))
+		{
+			$momentX[$group] = $mass[$group] = 0;
+			foreach ($data[$group] as $row)
+			{
+				if (isset($row['qty']))
+				{
+					$mass[$group] += $row['qty'] * $row['M'] * 9.81;
+					$momentX[$group] += $mass[$group] * $row['X'];
+				}
+			}
+		}
+	}
+
+dbug($mass);
+	// max thrust moment
+	$thrustMax = $drag[$key]['Max Thrust'] * $data['thrustY'];
+	$thrustCruise = $drag[$cruiseSpeed['key']]['Max Thrust'] * $data['thrustY'];
+	$thrustMin = end($drag)['Max Thrust'] * $data['thrustY'];
+	
+	// cumulative moment for each case
+	$rearward = array(
+				'mass' => $mass['hull'] + $mass['engines'] + $mass['misc'] + $mass['pass_rearward'],
+				'moment' => $momentX['hull'] + $momentX['engines'] + $momentX['misc'] + $momentX['pass_rearward'],
+				);
+				
+	$forward = array(
+				'mass' => $mass['hull'] + $mass['engines'] + $mass['misc'] + $mass['pass_forward'],
+				'moment' => $momentX['hull'] + $momentX['engines'] + $momentX['misc'] + $momentX['pass_forward'] - $thrustMax,
+				);
+
+	$forward['X'] = $forward['moment'] - $forward['mass'];
+	$rearward['X'] = $rearward['moment'] - $rearward['mass'];
+	
+		
+
+dbug($forward);
+dbug($rearward);
+
+				
+				
+				
+				
+
+				
+				
+				
+				
+				
 // ALL DONE //////////////////
 
 
@@ -341,15 +510,10 @@ function wettingDrag($perimeterArea, $skirt, $velocity, $roWater)
 
 function thrust($power, $diamProp, $thrusterType, $velocity, $roAir, $liftType, $splitterHeight)
 {
-//print_r(func_get_args());
-//echo"<br/><br/>";
+//dbug(func_get_args());
 
-//	$FOM_Prop = 0.55;
-//	$FOM_Fan = 0.55 * 1.27; // This is a bodge. It's as accurate as anything I've found so far.
-
-//print_r(func_get_args());
-	if ($power <= 0);
-			return 0;
+	if ($power <= 0)
+		return 0; // not enough power for thrust!
 
 	$FOM_Prop = 0.55;
 	$FOM_Fan = 0.55 * 1.27; // This is a bodge. It's as accurate as anything I've found so far.
@@ -357,11 +521,13 @@ function thrust($power, $diamProp, $thrusterType, $velocity, $roAir, $liftType, 
 	$radProp = $diamProp / 2;
 	$areaProp = pi() * pow($radProp,2);
 
-	If ($thrusterType) // true if prop
+	if ($thrusterType ) // true if prop
 	{  
 		if ($velocity < 0.3)
+{
 			// This is the static thrust
 			$thrust = pow(($FOM_Prop * $power / sqrt((1 / (2 * $roAir * $areaProp)))),(2 / 3));
+}
 		else
 		{   // This is the moving thrust
 			// first iterate to find the efficiency
@@ -393,7 +559,7 @@ function thrust($power, $diamProp, $thrusterType, $velocity, $roAir, $liftType, 
 		}
 	}
 	return $thrust;
-	}
+}
 
 //>>>>>>>>>> subs >>>>>>>>>>
 
@@ -415,8 +581,7 @@ function closestMatch($int, $arr)
 
 
 
-////////////////////////////////////////////////// Functions from excell sheet CofG Calculator-Rev0
-
+////////////////////////////////////////////////// Functions from excel CofG Calculator - Rev0
 
 /*
 Function Area_Polynomial(x1, y1, x2, y2, x3, y3, x4, y4, x5, $y5, x6, y6, x7, y7, x8, y8, x9, y9) As Double
@@ -471,47 +636,61 @@ End Function
 */
 
 
-function Area_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9)
+// $coords = array of XY coords for each corner of the polygon
+function Area_Polynomial($coords = array())
 {
-	$a1 = $x1 * $y2 - $$x2 * $y1;
-	$a2 = $x2 * $y3 - $x3 * $y2;
-	$a3 = $x3 * $y4 - $x4 * $y3;
-	$a4 = $x4 * $y5 - $x5 * $y4;
-	$a5 = $x5 * $y6 - $x6 * $y5;
-	$a6 = $x6 * $y7 - $x7 * $y6;
-	$a7 = $x7 * $y8 - $x8 * $y7;
-	$a8 = $x8 * $y9 - $x9 * $y8;
-		
-	return abs((1 / 2) * ($a1 + $a2 + $a3 + $a4 + $a5 + $a6 + $a7 + $a8));
-
+	if (empty($coords) OR count($coords) < 3)
+		return 0;  // no enclosed shape!
+	// check first and last coords are the same!
+	if ($coords[0]['x'] != $coords[count($coords) - 1]['x'] OR  $coords[0]['y'] != $coords[count($coords) - 1]['y'])
+		$coords[] = $coords[0];
+	$area = 0;
+	for ($i = 1; $i < count($coords); $i++)
+			$area += ($coords[$i-1]['x'] * $coords[$i]['y']) - ($coords[$i]['x'] * $coords[$i-1]['y']);
+	return abs($area / 2);
 }
 
-function Area_Circular_Segment($chord, $Radius)
+function Area_Circular_Segment($chord, $radius)
 {
-	$alpha = 2 * asin($chord / (2 * $radius));
-	return ($radius ^ 2 / 2) * ($alpha - sin($alpha));
+	$alpha = 2 * asin($chord / (2 * $radius));  // angle of segment
+	return (pow($radius, 2) / 2) * ($alpha - sin($alpha));
 }
 
 function Centroid_Circular_Segment($chord, $radius, $offset)
 {
-	$alpha = 2 * asin($chord / (2 * $radius));
-	return $offset - ((4 * $radius * pow((sin($alpha / 2)), 3)) / (3 * ($alpha - sin($alpha))) - $radius * cosCos($alpha / 2));
+	$alpha = 2 * asin($chord / (2 * $radius)); // angle of segment
+	return $offset - ((4 * $radius * pow((sin($alpha / 2)), 3)) / (3 * ($alpha - sin($alpha))) - $radius * cos($alpha / 2));
 }
 
-function Centroid_X_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9, $x_offset, $angle)
+function Perimeter_Circular_Segment($chord, $radius)
 {
-	$m1 = ($x1 + $x2) * ($x1 * $y2 - $x2 * $y1);
-	$m2 = ($x2 + $x3) * ($x2 * $y3 - $x3 * $y2);
-	$m3 = ($x3 + $x4) * ($x3 * $y4 - $x4 * $y3);
-	$m4 = ($x4 + $x5) * ($x4 * $y5 - $x5 * $y4);
-	$m5 = ($x5 + $x6) * ($x5 * $y6 - $x6 * $y5);
-	$m6 = ($x6 + $x7) * ($x6 * $y7 - $x7 * $y6);
-	$m7 = ($x7 + $x8) * ($x7 * $y8 - $x8 * $y7);
-	$m8 = ($x8 + $x9) * ($x8 * $y9 - $x9 * $y8);
-
-	$area = Area_Polynomial($x1, $y1, $x2, $y2, $x3, $y3, $x4, $y4, $x5, $y5, $x6, $y6, $x7, $y7, $x8, $y8, $x9, $y9);
-
-	return $x_offset + abs((1 / (6 * $area)) * ($m1 + $m2 + $m3 + $m4 + $m5 + $m6 + $m7 + $m8)) * cos($angle * pi / 180);
-
+	$alpha = 2 * asin($chord / (2 * $radius));  // angle of segment
+	return $alpha * $radius;
 }
 
+function Centroid_X_Polynomial($coords = array(), $x_offset, $angle)
+{
+	// check first and last coords are the same!
+	if ($coords[0]['x'] != $coords[count($coords) - 1]['x'] OR  $coords[0]['y'] != $coords[count($coords) - 1]['y'])
+		$coords[] = $coords[0];
+	if (empty($coords) OR count($coords) < 3)
+		return 0;
+	
+	$area = Area_Polynomial($coords);
+	
+	for ($i = 1; $i < count($coords); $i++)
+			$m += ($coords[$i-1]['x'] + $coords[$i]['x']) * ($coords[$i]['x'] * $coords[$i]['y'] - $coords[$i]['x'] * $coords[$i-1]['y']);
+	return $x_offset + abs((1 / (6 * $area)) * $m) * cos($angle * pi / 180);
+}
+
+// $coords = array of XY coords for each corner of the polygon
+function Perimeter_Polygon($coords = array())
+{
+	if (empty($coords))
+		return 0;  
+
+	$per = 0;
+	for ($i = 1; $i < count($coords); $i++)
+			$per += sqrt(pow(abs($coords[$i]['x'] - $coords[$i -1]['x']), 2) + pow(abs($coords[$i]['y'] - $coords[$i - 1]['y']), 2));
+	return $per;
+}

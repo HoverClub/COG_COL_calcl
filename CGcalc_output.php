@@ -29,7 +29,7 @@
 		$plot->SetDataType('data-data');
 		$plot->SetDataValues($alldata);
 
-		$plot->SetTitle($craftName);
+		$plot->SetTitle($selName);
 		$plot->SetXTitle('MPH');
 		$plot->SetYTitle('pound force');
 		$plot->SetPlotType('lines');
@@ -49,6 +49,8 @@
 			exit;
 		}
 
+
+
 	}
 
 /*
@@ -58,9 +60,18 @@
 */
 	echo '
 	<script>
-	 function addOption(elementId)
+	 function addCalcRow(name)
 	 {
-	 setOuterHTML(elementById, \'<dd class="smalltext"><input type="file" size="60" name="attachment[]" id="attachment\' + current_attachment + \'" class="input_file" /> (<a href="javascript:void(0);" onclick="cleanFileInput(\'attachment\' + current_attachment + '\');">Clear Attachment</a>)' + '</dd><dd class="smalltext" id="moreAttachments"><a href="#" onclick="addAttachment(); return false;">(more attachments)<\' + \'/a><\' + \'/dd>\');
+		var table = document.getElementById(\'CGtable_\' + name);
+		var index = table.rows.length;
+		var row = table.insertRow(-1); //at end of table
+
+		var titles = ["qty", "title", "M", "X"];
+		for(i=0; i<4; i++)
+		{
+			var cell=row.insertCell(i);
+			cell.innerHTML = \'<input class="input_text" name="\' + name + \'[\' + index + \'][\' + titles[i] + \']" />\';
+		}
 	 }
 	 </script>
 	
@@ -85,7 +96,7 @@
 			<div align="center">
 				<input value="Calculate &amp; save Data" type="submit" name="docalc" class="button_submit"/>';
 			if (!empty($err_array)) 
-				echo '<br /><p><div style="font-family:Verdana; font-size:12px; color:red;">There are errors in the data you have entered - they are marked in red</div></p>'; 
+				echo '<br /><p><div style="font-family:Verdana; font-size:12px; color:red;">Sorry but there are errors in the data you have entered (shown in red).</div></p>'; 
 			elseif (isset($saved)) 
 				echo '<p><div style="font-family:Verdana; font-size:12px; color:green;">The data for ' . ucfirst($data['craftName']) . ' has been saved.</div></p>';
 			echo '
@@ -104,7 +115,7 @@
 	
 	if (isset($showresult)) 
 	{
-		require_once('subs_hcalc.php');
+		require_once('subs_cg.php');
 		echo '<br/>
 	<fieldset><legend style="font-family:Verdana; font-size:16px;"><b>PERFORMANCE DATA</b></legend>';
 			
@@ -188,16 +199,16 @@
 				</tr>
 			
 				<tr align="middle">
-				  <td bgcolor="#99CCFF">Design cushion pressure</td>
-				  <td bgcolor="#e0e0e0" style="font-size:16px; text-align:center;">' . round($designCushionPressure,2) . 'Pa (' . round($designCushionPressure * 0.0208854342,1) .'lbf/ft^2)</td>
+				  <td bgcolor="#99CCFF">Design cushion pressure @ weight</td>
+				  <td bgcolor="#e0e0e0" style="font-size:16px; text-align:center;">' . round($designWeight['cushionPress'],2) . 'Pa (' . round($designWeight['cushionPress'] * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($designWeight['mass'] /  9.81,2) . 'Kg</td>
 				</tr>
 
 				<tr align="middle">
-				  <td bgcolor="#99CCFF">Cruise cushion pressure</td>
-				  <td bgcolor="#e0e0e0" style="font-size:16px; text-align:center;">' . round($cruiseCushionPressure,2) . 'Pa (' . round($cruiseCushionPressure * 0.0208854342,1) .'lbf/ft^2)</td>
+				  <td bgcolor="#99CCFF">Cruise cushion pressure @ weight</td>
+				  <td bgcolor="#e0e0e0" style="font-size:16px; text-align:center;">' . round($cruiseWeight['cushionPress'],2) . 'Pa (' . round($cruiseWeight['cushionPress'] * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($cruiseWeight['mass'] /  9.81,2) . 'Kg</td>
 				</tr>'
 
-				. (($directFeedArray[$data['directFeed']]) ? '' : '<tr align="middle">
+				. (($data['directFeed']) ? '' : '<tr align="middle">
 				  <td bgcolor="#99CCFF">Indirect cushion feed area</td>
 				  <td bgcolor="#e0e0e0" style="font-size:16px; text-align:center;">' . round($feedArea,2) . 'm^2 (' . round($feedArea * 10.7639104,2) . 'ft^2)</td>
 				</tr>') . '
@@ -231,7 +242,6 @@
 			echo '<br/><span style="color:red;text-align:center;">WARNING<br/>This craft design will NOT be able to exceed hump speed!  Try increasing the craft size/engine power or reducing the weight.</span>';
 		elseif ($maxSpeed > $data['maxSpeed']) echo '<br/><span style="color:red;text-align:center;">WARNING<br/>This craft can exceed the maximum operating speed that you have specified - you could use a smaller engine/fan/prop OR increase the payload.</span>';
 
-
 		// show graph on the page
 		echo '
 			<div align="center" style="color:red;font-weight:bold;">
@@ -243,17 +253,23 @@
 	
 	echo '
 		<dl>
-			<dd><strong>CRAFT & HULL</strong></dd>
+			<dd><strong>GENERAL</strong></dd>
 			<dt></dt>
 		</dl>
 		<dl>';
-		
-	doradioinput('rectShape', array('Rectangular','Rounded'),'The shape of your craft is assumed to be either rectangular or with semi-circular front and rear. If your craft is a different shape, then enter length and width dimensions that will give you the same cushion area as your craft (see calculator results).','Craft shape',false, array($dis,$dis));
-	dotextinput('hullLength', 10, 10, 'Craft length', 'Hard structure length', 'metres', '', $dis);
-	dotextinput('hullWidth', 10, 10, 'Craft width', 'Hard structure width (off-cushion)', 'metres', '', $dis);
-	dotextinput('designWeight', 10, 10, 'Maximum weight','Total all-up weight of craft when fully loaded with the maximum permitted payload (craft empty weight plus max. no. of passengers, full fuel load, gear, etc.)',  'Kg', '', $dis);
-	dotextinput('cruiseWeight', 10, 10, 'Cruise weight', 'Normal all-up cruise weight (craft empty weight plus one occupant, fuel, gear, etc.?)', 'Kg', '', $dis);
 	dotextinput('maxSpeed', 5, 5, 'Maximum operating speed', 'Available from manufacturer or designer (usually on ice or other smooth surfaces)', 'MPH', '', $dis);
+	
+	echo '
+		</dl>
+		<hr class=!"hrcolor" size="1" />
+		<dl>
+			<dd><strong>CRAFT HULL</strong></dd>
+			<dt></dt>
+		</dl>
+		<dl>';
+	dotextinput('hullLength', 10, 10, 'Craft length', 'Hard structure length', 'metres', '', $dis);
+	dotextinput('hullWidth', 10, 10, 'Craft hull width.', 'Hard structure width (off-cushion)', 'metres', '', $dis);
+	dotextinput('sternChamf', 10, 10, ' Length of rear corner angles', 'The length of any corner chamfers at rear of hull (set to 0 if rear has square corners)', 'metres', '', $dis);
 	dotextinput('frontalArea', 5, 5, 'Frontal Area', 'The area of the front profile of the craft whilst on hover - don\'t include the fan/prop duct area', 'Square Metres', '', $dis);
 	dotextinput('dragCoeff', 5, 5, 'Drag coefficient', 'Most craft are around 0.4, smooth & pointy = 0.2, boxy = 0.8', '', '', $dis);	
 	echo '
@@ -261,18 +277,47 @@
 		<hr class=!"hrcolor" size="1" />
 		
 		<dl>
-			<dd><strong>LIFT SYSTEM</strong></dd>
+			<dd><strong>SKIRT & LIFT SYSTEM</strong></dd>
 			<dt></dt>
 		</dl>
 		<dl>';
+	dotextinput('contactoffset', 5, 5, 'Skirt Contact Line Offset', 'How far in the skirt contact point (where the tips touch the surface) is from the hard hull edge at the sides and rear.', '', '', $dis);	
+	dotextinput('bowskirtfront', 5, 5, 'Bow Skirt Contact Line Offset', 'How far in the front skirt contact point (where the tips touch the surface) is from the very front of the hull.', '', '', $dis);	
+	dotextinput('bowradius', 5, 5, 'Bow skirt radius', 'The approximate radius of the bow part of the skirt the shape it takes up when the craft is on-cushion).', '', '', $dis);	
+	dotextinput('dividerfront', 5, 5, 'Cushion Partition (divider) Offset', 'How far from the front of the hull the divider or partition skirt is (set to zero if there is no divider skirt).', '', '', $dis);	
+	dotextinput('divradius', 5, 5, 'Divider/partition skirt radius', 'The approximate radius of the divider/partition skirt when the the craft is on-cushion).', '', '', $dis);	
 	dotextinput('skirtGap', 4, 4, 'Skirt gap', 'If your craft will fly mostly over smooth surfaces then 0.012m to 0.018m is usually OK.  If you operate over rough water or other rough surfaces (long grass, etc) then 0.020 to .025m hover gap may be better. If in doubt use a higher value.','metre','',$dis);	
 	dotextinput('reserve', 4, 4, 'Lift reserve','The Lift System reserve should be at least 50% to allow for operation on rough surfaces - higher values may be needed for very rough water.', 'percent','',$dis);	
-	doradioinput('twinFan', array('Twin engine','Single engine, twin fan', 'Single engine, single fan (integrated)'),'<i>Twin engine</i>: one engine for thrust and another for lift.<br /><i>Single engine twin fan</i>: separate lift and thrust fans/propeller.<br /><i>Single engine, single fan</i>: one engine and one fan supplies BOTH lift and thrust (integrated)','Lift engine',false, array($dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'block\';getElementById(\'dd_splitterHeight\').style.display =\'block\';"'));
+
+	doradioinput(
+		'twinFan', 
+		array('Twin engine','Single engine, twin fan', 
+		'Single engine, single fan (integrated)'),
+		'<i>Twin engine</i>: one engine for thrust and another for lift.<br /><i>Single engine twin fan</i>: separate lift and thrust fans/propeller.<br /><i>Single engine, single fan</i>: one engine and one fan supplies BOTH lift and thrust (integrated)','Lift engine',
+		false, 
+		array($dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'block\';getElementById(\'dd_splitterHeight\').style.display =\'block\';"'), 
+		array('twinEng', 'twinFan', 'int'));
 
 	dotextinput('splitterHeight', 5, 10, 'Splitter Height','Integrated lift fan splitter plate height.', 'metre','style="display:' .(($data['twinFan']=='3' ? 'block;"' : 'none;"')), $dis);	
 
-	doradioinput('skirt', array('Finger/segment or loop/segment','Bag skirt'),'','Skirt type',false,array($dis,$dis));
-	doradioinput('directFeed', array('Direct','Indirect'),'Direct means the lift air goes directly into the cushion (no duct or plenum), <strong>indirect</strong> that it passes through a plenum, loop or bag before reaching the main cushion','Skirt feed type',false, array($dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'none\';getElementById(\'dd_feedHoles\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'block\';getElementById(\'dd_feedHoles\').style.display =\'block\';"'));
+	doradioinput(
+		'skirt', 
+		array('Finger/segment or loop/segment','Bag skirt'),
+		'',
+		'Skirt type',
+		false,
+		array($dis,$dis),
+		array('finger', 'bag')
+		);
+	doradioinput(
+		'directFeed', 
+		array('Direct','Indirect'),
+		'Direct means the lift air goes directly into the cushion (no duct or plenum), <strong>indirect</strong> that it passes through a plenum, loop or bag before reaching the main cushion',
+		'Skirt feed type',
+		false,
+		array($dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'none\';getElementById(\'dd_feedHoles\').style.display =\'none\';"',$dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'block\';getElementById(\'dd_feedHoles\').style.display =\'block\';"'),
+		array('0', '1')
+		);
 	echo '
 			<dt id="dt_feedHoles" style="display:' . ($data['directFeed']=='2' ? 'block;"' : 'none;"') . '">
 				<strong><span ' . (isset($err_array['feedholes']) ? ' style="color:red;"' : '') . '>Air feed holes</span></strong>
@@ -307,11 +352,36 @@
 			<dt></dt>
 		</dl>
 		<dl>';
-	doradioinput('prop', array('Propeller','Fan'),'','Thrust Device', true, array($dis,$dis));
+	doradioinput(
+		'prop', 
+		array('Propeller','Fan'),
+		'',
+		'Thrust Device', 
+		true, 
+		array($dis,$dis),
+		array('0', '1')
+		);
 	dotextinput('fanDiam', 5, 10, 'Prop/Fan diameter','', 'metre','' ,$dis);	
+	dotextinput('thrustY', 5, 10, 'Prop/Fan Centre Height','The distance the center of the thrust fan/pop is from the surface when the craft is on full hover.', 'metre','' ,$dis);	
 	dotextinput('tPower', 5, 10, 'Engine power','If it\'s a twin engine craft then only enter the THRUST engine power.  For single engine craft, the program will automatically subtract the amount of power needed (calculated) for lift using the remainder for thrust.  In all cases, you should reduce the engine manufacturer\'s power figure by at least 10% to allow for real-world variations and conditions.', 'HP', '', $dis);	
-	echo '	</dl>
-		</div>
+	echo '	</dl>';
+
+	echo '
+		<hr class=!"hrcolor" size="1" />
+		<dl>
+			<dd><strong>COMPONENT WEIGHTS & POSITIONS</strong></dd>
+			<dt></dt>
+		</dl>
+		<dl>';
+	doMtextinput('hull','Hull Components','Items that are contained in the craft hull. Initial items shown are just examples - you can edit or remove them (set the quantity to zero) if you wish.',$dis);
+	doMtextinput('engines','Engines & Transmission Components','Engines, fans, frames, etc. used to lift or propel the craft. Initial items shown are just examples - you can edit or remove them if you wish.',$dis);
+	doMtextinput('misc','Miscellaneous Components','Other items in the craft (skirt, windscreen. tools, seats, batteries, etc. Initial items shown are examples - you can edit or remove them if you wish.',$dis);
+	doMtextinput('pass_forward','Passengers, Fuel and Equipment - most FORWARD position.','In the MOST FORWARD load case, put in the Driver and any passengers sitting at his side, with any equipment that would be mounted forward. The idea is to cover the most bow-down load case that might be envisaged. Initial items shown are examples - you can edit or remove them if you wish.',$dis);
+	doMtextinput('pass_rearward','Passengers, Fuel and Equipment - most REARWARD position.','In the MOST REARWARD load case, put in the driver, any back seat passengers. and any equipment that will be at the back The idea is to cover the most rear-heavy case that can be envisaged. Initial items shown are examples - you can edit or remove them if you wish.',$dis);
+
+	echo ' 
+		</dl>
+	</div>
 </form>';
 			
 ?>
