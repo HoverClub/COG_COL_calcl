@@ -89,11 +89,11 @@ function docheckinput($var, $sels, $descr, $title, $hor=true, $params=array())
 }
 
 // $data[$var] is the currently selected radio button number
-// $sels is an array of text names for each radio button 
-// they are numbered using the $descr array keys (+1 = 0-nn)
+// $sels is an array of text names for each radio button. the keys are the button values
+// they are numbered using the $sels array keys (+1 = 0-nn)
 // $hor true to arrange buttons horizontally, false for vertical (stacked)
-// $params is an array of paramters for each radio button (same order as $sels)
-function doradioinput($var, $sels, $descr, $title, $hor=true, $params=array(), $buttonids=array())
+// $params is an array of paramters for each radio button (same index values as $sels)
+function doradioinput($var, $sels, $descr, $title, $hor=true, $params=array())
 {
 	global $err_array, $data;
 	if (!isset($data[$var]))
@@ -109,31 +109,60 @@ function doradioinput($var, $sels, $descr, $title, $hor=true, $params=array(), $
 		foreach ($sels as $key=>$name)
 		{
 			echo '
-			<input type="radio" name="' . $var . '" class="input_radio" value="' . (!empty($buttonids) ? $buttonids[$key] : ($key+1)) . '" ' . (((!empty($buttonids) AND $data[$var] == $buttonids[$key]) OR $data[$var] == ($key + 1)) ? 'checked="checked" ' : ' ') . (!empty($params) ? ' ' . $params[$key] : '') . ' />' . $name . ($hor ? '&nbsp;' : '<br />');
+			<input type="radio" name="' . $var . '" class="input_radio" value="' . $key . '" ' . ($data[$var] == $key  ? 'checked="checked" ' : ' ') . (!empty($params[$key]) ? ' ' . $params[$key] : '') . ' />' . $name . ($hor ? '&nbsp;' : '<br />');
+
+//			echo '
+//			<input type="radio" name="' . $var . '" class="input_radio" value="' . (!empty($buttonids) ? $buttonids[$key] : ($key+1)) . '" ' . (((!empty($buttonids) AND $data[$var] == $buttonids[$key]) OR $data[$var] == ($key + 1)) ? 'checked="checked" ' : ' ') . (!empty($params) ? ' ' . $params[$key] : '') . ' />' . $name . ($hor ? '&nbsp;' : '<br />');
 		}
 		echo '</dd>' . showerr($var);
 	}
 }
 
-// $var is variable array to show from $data array
-// $title is right side title
-// $descr is under title
-// $inputparams is the style for the input text box
-function doMtextinput($var, $title, $descr, $inputparms='')
+/*
+ $var is variable array to show from the $data array
+ $title is right side title
+ $descr is under title
+ $inputparams is the style for the input text box
+ $cols is array of 
+	'input_indexname'	=> array( 
+		'title'=>"column header name", 
+		'type'=>"input type (text (default), range, etc.), 
+		'max'=>nn, 
+		'min'=>nn (both optional and only for for range type)
+		'step'=> range step size
+		'size'=> width for text input
+		)
+*/
+function doMtextinput($var, $title, $descr, $cols = array(), $inputparms='')
 {
 	global $data, $err_array, $dis;
-	if (!is_array($data[$var]))
-		return; // not an array!
 	echo '
-		<dt id="dt_' . $var . '" >
+		<dt id="dt_' . $var . '">
 			<strong><span ' . (isset($err_array[$var]) ? ' style="color:red;"' : '') . '>' . $title . '</span></strong>
 			' . ($descr!='' ? '<br /><span class="smalltext">' . $descr . '</span>' : '') . '
 		</dt>
-		<dd>
+		<dd id="dd_' . $var . '">
 			<table id="CGtable_' . $var . '">
-			<tr>
-				<th>Qty</th><th>Item Name</th><th>Weight (Kg)</th><th>Distance from bow (m)</th>
+			<tr>';
+	// construct html inpu paramters for each column
+	$params = array();
+	foreach ($cols as $index=>$col)
+	{
+		echo '
+				<th>' . $col['title'] . '</th>';
+		$params[$index] = $inputparms . (isset($col['type']) ? ' type="' . $col['type'] . '"' : '') . (isset($col['size']) ? ' size="' . $col['size'] . '"' : '') . 
+			($col['type'] == 'range' ? 
+				(isset($col['max']) ? ' max="' . $col['max'] . '"' : '') . 
+				(isset($col['max']) ? ' min="' . $col['min'] . '"' : '') . 
+				(isset($col['step']) ? ' step="' . $col['step'] . '"' : '')
+			: '');
+	}
+
+	echo '
 			</tr>';
+	// if no data value then add at least one empty row!
+	if (empty($data[$var]))
+		$data[$var][] = array_fill_keys(array_keys($cols), 0); // empty line
 	foreach ($data[$var] as $index => $gdata)
 	{
 		if (isset($err_array[$var][$index]))
@@ -143,20 +172,27 @@ function doMtextinput($var, $title, $descr, $inputparms='')
 			</tr>';
 		echo '
 			<tr>';
-		foreach ($gdata as $key => $value)
+		foreach ($gdata as $col => $value)
+		{
 			echo '
-				<td>
-					<input class="input_text" name="' . $var . '[' . $index . '][' . $key . ']" value="' . htmlspecialchars($value) . '" ' . $inputparms . (isset($err_array[$var][$index][$key]) ? ' style="color:red;"'  : '') . ' />
-				</td>
-			';
+			<td> 
+				<input ' . $params[$col] . ' class="input_text" name="' . $var . '[' . $index . '][' . $col . ']" value="' . htmlspecialchars($value) . '" ' . (isset($err_array[$var][$index][$col]) ? ' style="color:red;"'  : '');
+			if (isset($cols[$col]['type']) AND $cols[$col]['type'] == 'range')
+				echo ' id="range_' . $var . '_' .$index . '_' . $col . '" onchange="document.getElementById(\'input_' . $var . '_' .$index . '_' . $col . '\').value=this.value" /><input id="input_' . $var . '_' . $index . '_' . $col . '" value="' . htmlspecialchars($value) . '" onchange="document.getElementById(\'range_' . $var . '_' .$index . '_' . $col . '\').value=this.value" size="4"/>'; 
+			else
+				echo '
+					/>';
+			echo '
+			</td>';
+		}
 		echo '
 			</tr>';
-		}
+	}
 	echo '
 			</table>';
 	if (!$dis)
 		echo '
-			<a href="javascript:void(0);" onclick="addCalcRow(\'' . $var . '\')">... add another item.</a> (to remove an item set the quantity to zero).';
+			<a href="javascript:void(0);" onclick="addCalcRow(\'' . $var . '\', [\'' . htmlspecialchars(implode('\',\'', array_keys($cols))) . '\'], [\'' . htmlspecialchars(implode('\',\'', $params)) . '\'])">... add another item.</a>.';
 	echo '
 		</dd>';
 }

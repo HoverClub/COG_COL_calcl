@@ -48,28 +48,33 @@
 				<p><img src="' . $plot->EncodeImage() . '" title="' . $data['craftName'] . '" /></p>';
 			exit;
 		}
+
+
+
 	}
 
+/*
+<dd id="moreAttachments" class="smalltext">
+<a onclick="addAttachment(this); return false;" href="#">(more attachments)</a>
+</dd>
+*/
 	echo '
 	<script>
-	 function addCalcRow(name, keynames, params)
+	 function addCalcRow(name)
 	 {
 		var table = document.getElementById(\'CGtable_\' + name);
-		var index = table.rows.length - 1;  // don\'t count the table header!
-		var row = table.insertRow(-1); //add row at end of table
+		var index = table.rows.length;
+		var row = table.insertRow(-1); //at end of table
 
-		for(i=0; i< keynames.length; i++)
+		var titles = ["qty", "title", "M", "X"];
+		for(i=0; i<4; i++)
 		{
 			var cell=row.insertCell(i);
-			var input = \'<input class="input_text" name="\' + name + \'[\' + index + \'][\' + keynames[i] + \']"\' + params[i];
-			if(params[i].indexOf(\'type="range"\') != -1)
-				input = input + \'id="range_\' + name + \'_\' + index + \'_\' + i + \'" onchange="document.getElementById(\\\'input_\' + name + \'_\' + index + \'_\' + i + \'\\\').value=this.value" /><input class="input_text" id="input_\' + name + \'_\' + index + \'_\' + i + \'" onchange="document.getElementById(\\\'range_\' + name + \'_\' + index + \'_\' + i + \'\\\').value=this.value" size="4"\';
-			input = input + \' />\';
-			cell.innerHTML = input;
+			cell.innerHTML = \'<input class="input_text" name="\' + name + \'[\' + index + \'][\' + titles[i] + \']" />\';
 		}
 	 }
 	 </script>
-
+	
 <form name="form" action="" method="post" id="creator">
 	<div class="content">
 		<dl>';
@@ -247,6 +252,7 @@
 		</dl>
 		<dl>';
 	dotextinput('maxSpeed', 5, 5, 'Maximum operating speed', 'Available from manufacturer or designer (usually on ice or other smooth surfaces)', 'MPH', '', $dis);
+	dotextinput('designWeight', 5, 10, 'Maximum Craft Weight','The maximum all-up weight that the craft is designed for (includes hull, passengers, fuel and everything else it can carry).', 'Kg','' ,$dis);	
 	
 	echo '
 		</dl>
@@ -273,6 +279,8 @@
 	dotextinput('contactoffset', 5, 5, 'Skirt Contact Line Offset', 'How far in the skirt contact point (where the tips touch the surface) is from the hard hull edge at the sides and rear.', 'metres', '', $dis);	
 	dotextinput('bowskirtfront', 5, 5, 'Bow Skirt Contact Line Offset', 'How far the front skirt contact point is (where the tips touch the surface) from the very front of the hull.', 'metres', '', $dis);	
 	dotextinput('bowradius', 5, 5, 'Bow skirt radius', 'The approximate radius of the bow part of the skirt the shape it takes up when the craft is on-cushion).', 'metres', '', $dis);	
+	dotextinput('dividerfront', 5, 5, 'Cushion Partition (divider) Offset', 'How far from the front of the hull the front of the divider or partition skirt is (set to zero if the craft doesn\'t have a divider skirt).', 'metres', '', $dis);	
+	dotextinput('divradius', 5, 5, 'Divider/partition skirt radius', 'The approximate radius of the divider/partition skirt when the the craft is on-cushion).', 'metres', '', $dis);	
 	dotextinput('skirtGap', 4, 4, 'Skirt gap', 'If your craft will fly mostly over smooth surfaces then 0.012m to 0.018m is usually OK.  If you operate over rough water or other rough surfaces (long grass, etc) then 0.020 to .025m hover gap may be better. If in doubt use a higher value.','metre','',$dis);	
 	dotextinput('reserve', 4, 4, 'Lift reserve','The Lift System reserve should be at least 50% to allow for operation on rough surfaces - higher values may be needed for very rough water.', 'percent','',$dis);	
 
@@ -282,21 +290,13 @@
 		'<i>Twin engine</i>: one engine for thrust and another for lift.<br /><i>Single engine twin fan</i>: separate lift and thrust fans/propeller.<br /><i>Single engine, single fan</i>: one engine and one fan supplies BOTH lift and thrust (integrated)','Lift engine',
 		false, 
 		array(
-			'twinEng'=>$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';;"',
-			'twinFan'=> $dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';"',
-			'int'=>$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'block\';"')
+			'twinEng'=>$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',
+			'twinFan'=> $dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'none\';getElementById(\'dd_splitterHeight\').style.display =\'none\';"',
+			'int'=>$dis . ' onclick="getElementById(\'dt_splitterHeight\').style.display =\'block\';getElementById(\'dd_splitterHeight\').style.display =\'block\';"')
 		); 
 
-	echo '
-		</dl>
-		<div id="dt_splitterheight">
-			<dl>';
 	dotextinput('splitterHeight', 5, 10, 'Splitter Height','Integrated lift fan splitter plate height.', 'metre','style="display:' .(($data['twinFan']=='int' ? 'block;"' : 'none;"')), $dis);	
-	echo '
-			</dl>
-		</div>
-		<dl>';
-	
+
 	doradioinput(
 		'skirt', 
 		array('finger'=>'Finger/segment or loop/segment','bag'=>'Bag skirt'),
@@ -313,22 +313,36 @@
 		'Skirt feed type',
 		false,
 		array(
-			'0'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'block\';"',
-			'1'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'none\';"')
+			'0'=>$dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'block\';getElementById(\'dd_feedHoles\').style.display =\'block\';"',
+			'1'=>$dis . ' onclick="getElementById(\'dt_feedHoles\').style.display =\'none\';getElementById(\'dd_feedHoles\').style.display =\'none\';"')
 		);
 	echo '
+			<dt id="dt_feedHoles" style="display:' . ($data['directFeed']=='0' ? 'block;"' : 'none;"') . '">
+				<strong><span ' . (isset($err_array['feedholes']) ? ' style="color:red;"' : '') . '>Air feed holes</span></strong>
+				<br /><span class="smalltext">Please enter the quantity and size of the air feed holes in the plenum or bag skirt that feed the lift air into the main cushion under the craft (on a segmented skirt craft these are normally the holes in the hull near the top of each skirt segment)</span>
+			</dt>
+			<dd id="dd_feedHoles" style="display:' . ($data['directFeed']=='0' ? 'block;"' : 'none;"') . '">
+				<table align="center"  border="1">
+					<theader>
+						<tr>
+							<td>&nbsp;</td><td>Quantity</td><td>Diameter</td>
+						</tr>
+					</theader>
+					<tbody>';
+		for($i=1; $i<=3; $i++)
+			echo '		<tr>
+							<td>Type ' . $i . ' holes</td>
+							<td>					
+								<input name="hole' . $i . 'qty"' . $dis . ' class="input_text" value="' . (isset($data['hole' . $i . 'qty']) ? $data['hole' . $i . 'qty'] : '') . '" size="10" maxlength="10">' . showerr('hole' . $i . 'qty') . '
+							</td>
+							<td>					
+								<input name="hole' . $i . 'size"' . $dis . ' class="input_text" value="' . (isset($data['hole' . $i . 'size']) ? $data['hole' . $i . 'size'] : '') . '" size="10" maxlength="10"> metre' . showerr('hole' . $i . 'size') . '
+							</td>
+						</tr>';
+		echo '		</tbody>
+				</table>
+			</dd>
 		</dl>
-		<div id="feedholes" style="display:' . ($data['directFeed']=='0' ? 'block' : 'none') . ';">
-			<dl>';
-		doMtextinput('feed_holes','Plenum Feed Holes','Please enter the quantity and size of the air feed holes in the plenum or bag skirt that feed the lift air into the main cushion under the craft (on a segmented skirt craft these are normally the holes in the hull near the top of each skirt segment).  To remove a hole type set the quantity to zero.', 
-			array(	'qty'=>array('title'=>'Qty', 'size'=>3),
-					'diam'=>array('title'=>'Diameter (m)', 'size'=>8),
-				), 
-		$dis);
-		
-		echo '
-			</dl>
-		</div>
 		<hr class=!"hrcolor" size="1" />
 		
 		<dl>
@@ -356,50 +370,15 @@
 		<dl>';
 
 	// multi column fields - columns idex name => column description
-	$cols = array(	'qty'=>array('title'=> 'Qty', 'size'=>3),
-					'title'=>array('title'=> 'Item Name','size'=>23),
-					'M'=>array('title'=> 'Weight','size'=>4),
-					'X'=>array('title'=> 'Distance from bow(m)', 'type'=>'range', 'min'=>0, 'max'=> $data['hullLength'] + 1, 'step'=>0.1,),
-					);
-	doMtextinput('hull','Hull Components','Items that are contained in the craft hull. Initial items shown are just examples - you can edit or remove them (set the quantity to zero) if you wish (to remove an item set the quantity to zero).', $cols, $dis);
-	doMtextinput('engines','Engines & Transmission Components','Engines, fans, frames, etc. used to lift or propel the craft. Initial items shown are just examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
-	doMtextinput('misc','Miscellaneous Components','Other items in the craft (skirt, windscreen. tools, seats, batteries, etc. Initial items shown are examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
-	
-	doMtextinput('max_load','Passengers, Fuel and Equipment - maximum.','Combined with the hull, engines and misc., the is the maximum load the craft is designed to carry (to remove an item set the quantity to zero).', $cols, $dis);
-	doradioinput(
-		'dual_comp', 
-		array('single'=>'Single compartment cushion','dual'=>'Dual compartment cushion'),
-		'With a single compartment cushion there is no divider skirt, dual compartment has a partition skirt or flap.',
-		'Cushion Type',
-		false, 
-		array(
-			'single' => $dis . ' onclick="getElementById(\'div_divider\').style.display =\'none\';"',
-			'dual' => $dis . ' onclick="getElementById(\'div_divider\').style.display =\'block\';"')
-		);
-	echo '
-			</dl>
-			<div id="div_divider" style="display:' . ($data['dual_comp']=='dual' ? 'block' : 'none') . ';">
-				<dl>
-					<dd><strong>DUAL COMPARTMENT</strong></dd>
-					<dt></dt>
-				</dl>
-				<dl>';
-	dotextinput('dividerfront', 5, 5, 'Cushion Partition (divider) Offset', 'How far from the front of the hull the front of the divider or partition skirt is.', 'metres', '', $dis);	
-	dotextinput('divradius', 5, 5, 'Divider/partition skirt radius', 'The approximate radius of the divider/partition skirt when the the craft is on-cushion).', 'metres', '', $dis);	
-	doradioinput(
-		'feed_type', 
-		array('underskirt'=>'Feed is from under divider skirt','dual'=>'Feed is from plenum.'),
-		'If your craft has an air feed plenum around the outer edge, then feed air for the front compartment can be supplied either from the main compartment (under the divider skirt lower edge - i.e. no feed holes in front compartment section) OR fed from the plenum feed holes in the fornt compartment.',
-		'Front Compartment Feed',
-		false, 
-		array($dis, $dis)
-		);
+	$cols = array('qty'=>'Qty', 'title'=>'Item Name', 'M'=>'Weight (Kg)', 'X'=>'Distance from bow(m)');
+	doMtextinput('hull','Hull Components','Items that are contained in the craft hull. Initial items shown are just examples - you can edit or remove them (set the quantity to zero) if you wish.', $cols, $dis);
+	doMtextinput('engines','Engines & Transmission Components','Engines, fans, frames, etc. used to lift or propel the craft. Initial items shown are just examples - you can edit or remove them if you wish.', $cols, $dis);
+	doMtextinput('misc','Miscellaneous Components','Other items in the craft (skirt, windscreen. tools, seats, batteries, etc. Initial items shown are examples - you can edit or remove them if you wish.', $cols, $dis);
 	doMtextinput('pass_forward','Passengers, Fuel and Equipment - in NOSE heavy load postion.','The is the worst case FORWARD loading position, usually Driver and any passengers sitting at his side, with any extra equipment all mounted in the most forward position possible. The idea is to cover the most nose-down load case that might be envisaged. Initial items shown are examples - you can edit or remove them if you wish.', $cols, $dis);
-	doMtextinput('pass_rearward','Passengers, Fuel and Equipment - in the TAIL heavy load postion.','This is the worst case REARWARD load setup- usually with only the driver up front with all passengers in their rear seats with any equipment,fual,etc. also all at the rear. The idea is to cover the most rear-heavy case that can be envisaged. Initial items shown are examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
-	echo '
-				</dl>
-			</div>';
+	doMtextinput('pass_rearward','Passengers, Fuel and Equipment - in the TAIL heavy load postion.','This is the worst case REARWARD load setup- usually with only the driver up front with all passengers in their rear seats with any equipment,fual,etc. also all at the rear. The idea is to cover the most rear-heavy case that can be envisaged. Initial items shown are examples - you can edit or remove them if you wish.', $cols, $dis);
 
+	echo ' 
+		</dl>';
 	if ($dis == '') // not disabled so save is allowed
 		echo '
 			<div align="center">

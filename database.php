@@ -70,6 +70,7 @@ elseif (!defined('SMF'))
 		'misc'=>'', 
 		'pass_forward'=>'', 
 		'pass_rearward'=>'',
+		'designWeight'=>'',
 		'sternChamf'=>'',
 		'bowskirtfront'=>'',
 		'dividerfront'=>'',

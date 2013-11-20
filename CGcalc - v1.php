@@ -36,8 +36,7 @@ if (!$is_club_member)
 	return true;
 }
 
-
-	global $data, $err_array, $selName, $roAir, $roWater, $showtable; 	// declare these as global at next higher level so 
+global $data, $err_array, $selName, $rearwardCoG, $forwardCoG ; 	// declare these as global at next higher level so 
 										// it's available to functions in this code!!!
 
 	// static variable definitions:
@@ -68,6 +67,12 @@ if (!$is_club_member)
 		twinFan VARCHAR(8) NOT NULL,
 		splitterHeight VARCHAR(10) NOT NULL,
 		directFeed BOOLEAN,
+		hole1qty VARCHAR(5) NOT NULL,
+		hole1size VARCHAR(5) NOT NULL,
+		hole2qty VARCHAR(5) NOT NULL,
+		hole2size VARCHAR(5) NOT NULL,
+		hole3qty VARCHAR(5) NOT NULL,
+		hole3size VARCHAR(5) NOT NULL,
 		reserve VARCHAR(3) NOT NULL,
 		prop BOOLEAN,
 		fanDiam VARCHAR(5) NOT NULL,
@@ -83,7 +88,7 @@ if (!$is_club_member)
 		'misc'=>'', 
 		'pass_forward'=>'', 
 		'pass_rearward'=>'',
-		'max_load'=>'',
+		'designWeight'=>'',
 		'sternChamf'=>'',
 		'bowskirtfront'=>'',
 		'dividerfront'=>'',
@@ -91,9 +96,6 @@ if (!$is_club_member)
 		'divradius'=>'',
 		'contactoffset'=>'',
 		'thrustY'=>'',
-		'dual_comp'=>'',
-		'feed_type'=>'',
-		'feed_holes'=>'',
 	);
 	$_REQUEST  = $smcFunc['db_query']('', "SELECT * FROM {db_prefix}hcb_craftdesign LIMIT 1");
 	$row = $smcFunc['db_fetch_assoc']($_REQUEST );
@@ -107,12 +109,13 @@ if (!$is_club_member)
 		");
 		
 	// get rid of any old columns we don't need - if they exist
-	// $row has a list of all columns
-	$oldcols = array('cruiseWeight', 'designWeight', 'rectShape', 'hole1qty', 'hole1size', 'hole2qty', 'hole2size', 'hole3qty', 'hole3size');
-	foreach ($oldcols as $col)
-		if (array_key_exists($col, $row)) 
-			$_REQUEST  = $smcFunc['db_query']('', "
-					ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN " . $col);
+	// $row has a list of all column
+	if (array_key_exists('cruiseWeight', $row)) 
+		$_REQUEST  = $smcFunc['db_query']('', "
+				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN cruiseWeight");
+	if (array_key_exists('rectShape', $row))
+		$_REQUEST  = $smcFunc['db_query']('', "
+				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN rectShape");
 */
 
 
@@ -139,18 +142,29 @@ if (!$is_club_member)
 	
 	// skirt dims
 	$data['bowskirtfront'] = '0.1';
+	$data['dividerfront'] = '1';
 	$data['bowradius'] = '1.1';  // radius of bow skirt
+	$data['divradius'] = '1.1';
 	$data['contactoffset'] = '0.02';  // contact point offset  inside hard hull
+	
+
+/* 
+calc'ed by CofG
+	$designWeight  = '330';
+	$cruiseWeight  = '300';
+*/
+
 	$data['maxSpeed']  = '40';
 	$data['frontalArea']  = '3';
 	$data['dragCoeff']  = '0.4';
 	$data['skirtGap']  = '0.019';
 	$data['splitterHeight']  = '0.3';
-	$data['feed_holes']  = array(
-		array('qty'=>'56', 'diam' => '.075'),
-		array('qty'=>'10', 'diam' => '.05'),
-		array('qty'=>'5', 'diam' => '.03'),
-		);
+	$data['hole1qty']  = '56';
+	$data['hole1size']  = '0.075';
+	$data['hole2qty']  = '10';
+	$data['hole2size']  = '0.05';
+	$data['hole3qty']  = '5';
+	$data['hole3size']  = '0.03';
 	$data['reserve'] = '50';
 	$data['fanDiam']  = '0.9';
 	$data['tPower']  = '21';
@@ -197,26 +211,21 @@ if (!$is_club_member)
 		); 
 	$data['pass_rearward'] = array(
 		array('qty' => '1', 'title' => 'Driver', 'M' => '75', 'X' => '0.5'),
+		array('qty' => '0', 'title' => 'Passenger (row 2)', 'M' => '75', 'X' => '1.5'),
 		array('qty' => '2', 'title' => 'Passenger (row 3)', 'M' => '75', 'X' => '3'),
 		array('qty' => '27', 'title' => 'Fuel (litres)', 'M' => '0.8', 'X' => '3.1'),
 		array('qty' => '1', 'title' => 'Equipment & tools etc.', 'M' => '25', 'X' => '1.5'),
 		);
 	
-	$data['dual_comp'] = 'single';
-
-	$data['dividerfront'] = '1';
-	$data['divradius'] = '1.1';
-
-	$data['feed_type'] = 'underskirt';
+	$data['designWeight'] = 750;
 	
-	$data['max_load'] = array(
-		array('qty' => '1', 'title' => 'Driver', 'M' => '75', 'X' => '0.5'),
-		array('qty' => '1', 'title' => 'Passenger (next to driver)', 'M' => '75', 'X' => '1'),
-		array('qty' => '1', 'title' => 'Passenger (row 2)', 'M' => '75', 'X' => '1.8'),
-		array('qty' => '3', 'title' => 'Passenger (row 3)', 'M' => '75', 'X' => '3'),
-		array('qty' => '42', 'title' => 'Fuel (litres)', 'M' => '0.8', 'X' => '3.1'),
-		array('qty' => '1', 'title' => 'Equipment & tools etc.', 'M' => '25', 'X' => '1.5'),
-		);
+
+// these will be calculated by the performance section!!!
+/*
+	$data['thrust_max'] = array('M' => '0', 'Y' => '0');
+	$data['thrust_cruise'] = array('M' => '0', 'Y' => '0');
+	$data['thrust_min'] = array('M' => '0', 'Y' => '0');
+*/
 
 	// see if a craft has been selected
 	if (isset($_POST['selName']))		
@@ -253,13 +262,10 @@ if (!$is_club_member)
 		if ($selName == 'New' AND in_array($data['craftName'],$craftList))
 			$err_array['craftName'] = 'this design already exists in the database - please enter a unique name'; 
 
-		get_post('twinFan','twinFan');
-		get_post('skirt','finger');
+		get_post('twinFan','2');
+		get_post('skirt','1');
 		get_post('directFeed','0');
 		get_post('prop','1');
-		get_post('feed_type','underskirt');
-		get_post('dual_comp','single');
-		
 		
 		if ($data['prop'] AND $data['twinFan']=='int') 
 			$err_array['prop'] = 'You can\'t use a prop for thrust in an integrated craft';
@@ -277,27 +283,24 @@ if (!$is_club_member)
 		validatenumber('splitterHeight', '1', '0.05'); 
 		
 		// feed holes fields are optional unless it's indirect feed
-		if (!$data['directFeed']) 
+		if ($data['directFeed']) 
+			$data['hole1qty']  = $data['hole2qty'] = $data['hole3qty'] = $data['hole1size'] = $data['hole2size'] = $data['hole3size'] = '';
+		else
 		{
-			if (isset($_REQUEST['feed_holes']))
+			validatenumber('hole1qty','300','1'); // must have SOME holes if a plenum fed!! 
+			validatenumber('hole1size','2','0.001'); 
+			if (!empty($_POST['hole2qty']) AND $_POST['hole2qty'] != '0')
 			{
-				foreach ($_REQUEST['feed_holes'] as $index => $row)
-				{			
-					if (empty($row['qty']))
-						unset($_REQUEST ['feed_holes'][$index]); // remove rows with zero-qty items
-					else
-					{
-						if (!is_numeric($row['qty'])
-								OR $row['qty'] > 200)
-							$err_array['feed_holes'][$index]['qty'] = "Qty must be less than 200";						
-						if (!is_numeric($row['diam']) 
-								OR $row['diam'] < 0.01 
-								OR $row['diam'] > 0.5 )
-							$err_array['feed_holes'][$index]['M'] = "Diameter must be greater than 0.01m and less than 0.5m";
-					}
-				}
-				$data['feed_holes'] = array_values($_REQUEST['feed_holes']); // re-index in case we removed some of them
-			}
+				validatenumber('hole2qty','300','1'); 
+				validatenumber('hole2size','2','0.001'); 
+				if (!empty($_POST['hole3qty']) AND $_POST['hole3qty'] != '0')
+				{
+					validatenumber('hole3qty','300','1'); validatenumber('hole3size','2','0.001');
+				} 
+				else {$data['hole3qty']  = '';$data['hole3size'] ='';}
+			} 
+			else 
+				{$data['hole2qty']  = $data['hole2size'] = $data['hole3qty'] = $data['hole3size'] = '';}
 		}
 
 		validatenumber('reserve','200');
@@ -312,9 +315,9 @@ if (!$is_club_member)
 		validatenumber('bowradius', 1e6, $data['hullWidth'] / 2);
 		validatenumber('divradius', 1e6, $data['hullWidth'] /2);
 		validatenumber('contactoffset', $data['hullWidth'] / 2);  
-
+//dbug ($_POST);
 		// now check the user-entered arrays
-		foreach (array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward', 'max_load') as $group)
+		foreach (array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward') as $group)
 		{
 			if (isset($_REQUEST[$group]))
 			{
@@ -341,14 +344,28 @@ if (!$is_club_member)
 			}
 		}
 		
-		// if all valid then save into database for this user
+		GetWeights(); // calc Cog weights, etc. so we can use them to check the design weight
+//dbug($rearwardCoG);
+//dbug($forwardCoG);
+		
+		get_post('designWeight', '0');
+		if (!is_numeric($data['designWeight']))
+			$err_array['designWeight'] = "Design weight must be greater than zero.";
+		if (($data['designWeight'] * 9.81) < $forwardCoG['mass'])
+			$err_array['designWeight'] = "Design weight must be greater than nose-heavy case total weight - " . $forwardCoG['mass'] /9.81;
+		if (($data['designWeight'] * 9.81) < $rearwardCoG['mass'])
+			$err_array['designWeight'] = "Design weight must be greater than tail-heavy case total weight - " . $rearwardCoG['mass'] /9.81;
+
+//dbug($err_array);
+
+		// if valid save into database for this user
 		if (empty($err_array))
 		{
 			$data['date'] = time(); // update modify date
 			$sdata = $data;  // make a copy for save operation
 			$sdata = array_filter($sdata); // remove null/false valuse
 			// encoded values 
-			foreach (array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward', 'max_load', 'feed_holes') as $group)
+			foreach (array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward') as $group)
 				$sdata[$group] = json_encode(array_values($sdata[$group]));
 
 			$showresult = true; // do the calcs and display the result
@@ -394,24 +411,81 @@ if (!$is_club_member)
 			{
 				if (!empty($d))
 				{
-					if (in_array($key, array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward', 'max_load',  'feed_holes')))
+					if (in_array($key, array('hull', 'engines', 'misc', 'pass_forward', 'pass_rearward')))
 						$d = json_decode($d, true); // return assoc array
 					$data[$key] = $d;
 				}
 			}
 			$showresult = true; // do the calcs and display the result - we've got valid saved data
-			}
+
+			GetWeights(); // calc Cog weights, etc. 
+		}
 	}
 
 // ------------------------ html output ---------------------------
 // ------------------------ html output ---------------------------
 
 	$dis = ''; // view only if non-empty
+//dbug($data);
+
+/*
+foreach (array('hull', 'engines', 'misc', 'pass_forward') as $group)
+{
+	$tmp = 0;
+	foreach ($data[$group] as $w)
+	{
+		if (!empty($w['qty']))
+			$tmp += $w['qty'] * $w['M'];
+	}
+	dbug ($group);
+	dbug($tmp);
+}
+dbug($forwardCoG);
+dbug($rearwardCoG);
+*/
 	
 	require('CGcalc_output.php');
 
 	
 //---------------------------------------------------------------------
 
+function GetWeights()
+{
+	global $data, $forwardCoG, $rearwardCoG, $err_array;
+	
+	// CofG calc - work out weights and moments for forward and rearward cases
+	foreach (array('hull', 'engines', 'misc', 'pass_rearward', 'pass_forward') as $group)
+		foreach ($data[$group] as $w)
+		{
+			if (!empty($w['qty']))
+			{
+				$mass = $w['qty'] * $w['M'] * 9.81;
+				$mom = $mass * $w['X'];
+				switch ($group)
+				{
+					case 'pass_rearward':
+						$rearwardCoG['mass'] += $mass;
+						$rearwardCoG['moment'] += $mom;
+						break;
+					case 'pass_forward':
+						$forwardCoG['mass'] += $mass;
+						$forwardCoG['moment'] += $mom;
+						break;
+					default:
+						$forwardCoG['mass'] += $mass;
+						$forwardCoG['moment'] += $mom;
+						$rearwardCoG['mass'] += $mass;
+						$rearwardCoG['moment'] += $mom;
+						break;
+				}	
+			}
+		}
+	// validate!
+	if ($rearwardCoG['mass'] == 0) 
+		$err_array['pass_rearward'][0]['qty'] = 'Rearward case total weight must be greater than zero';
+	if ($forwardCoG['mass'] == 0) 
+		$err_array['pass_forward'][0]['qty'] = 'Forward case total weight must be greater than zero';
+	return;
+}
 
 function dbug($var, $name='') { echo '<pre>' . (!empty($name) ? $name . ':' : '') . print_r($var,true) . '</pre>'; }

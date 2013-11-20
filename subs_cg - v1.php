@@ -18,18 +18,15 @@
 		3. front section between div root and bow root
 		4. bow segment
 	*/
-
-	// calculae cusion area first
+	$rearSect = $frontSect = $divSeg = $bowSeg = array('coords'=>array(), 'area'=>0, 'centroid'=>0);
 	
 	// first make up array of coords for each section of the skirt profile
 	// we start at the lower right corner (nearest the bow and work clockwise
 	// leaving the front/bow-facing side open
 	
-	$rearSect = $frontSect = $divSeg = $bowSeg = array('coords'=>array(), 'area'=>0, 'centroid'=>0, 'ext_perimeter'=>0);
-
 	$bowSeg['coords']['root'] = $data['bowradius'] - sqrt(pow($data['bowradius'],2) - (pow($data['hullWidth'] - (2 * $data['contactoffset']),2) / 4));
 	// front right corner first
-	if ($data['dual_comp'] == 'dual')
+	if (!empty($data['dividerfront']))
 	{
 		$divSeg['coords']['root'] = $data['divradius'] - sqrt(pow($data['divradius'],2) - (pow($data['hullWidth'] - (2 * $data['contactoffset']),2) / 4));
 		$frontSect['coords'][] = array(
@@ -72,7 +69,7 @@
 	}
 	
 	// front top corners
-	if ($data['dual_comp'] == 'dual')
+	if (!empty($data['dividerfront']))
 	{
 		$frontSect['coords'][] = $rearSect['coords'][] = array('x'=> $divSeg['coords']['root'] + $data['dividerfront'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
 
@@ -81,238 +78,96 @@
 	else // no partition so only one cushion
 		$rearSect['coords'][] = array('x'=> $bowSeg['coords']['root'] + $data['bowskirtfront'], 'y'=>$data['hullWidth'] - $data['contactoffset']);
 	
-	// cushion areas & perimeters
+	// cushion areas
+	$perimeter_rear = $perimeter_front = 0;
+	
 	$rearSect['area'] = Area_Polynomial($rearSect['coords']);
 	$rearSect['centroid'] =	Centroid_X_Polynomial($rearSect['coords']);
-	$rearSect['ext_perimeter'] = Perimeter_Polygon($rearSect['coords']);
-
+	
 	$bowSeg['area'] = Area_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);
 	$bowSeg['centroid'] = Centroid_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius'], $data['bowskirtfront'] + $bowSeg['coords']['root']);
-	$bowSeg['ext_perimeter'] = Perimeter_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);
 	
-
-/*
- Combine/subtract the areas to create front and rear cushions and calc CoL for each
- 
- There are three load cases for the cushion area and perimeter:
-
- 1.	dual compartment - nose-heavy - where cushion area is at max size and pressure is as per weight
- 2. dual compartment - rear loading - where cushion area is rear-only therefore pressure is higher and peremeter smaller.
- 3. dual AND single compartment - maximum design weight with max cushion area & perimeter.
- 
- We do the performance calcs on all three cases
-	- resulting in different hump curves, thrust curves and, becauae of the different weights, lift power requirements.
-*/
-	$rearCushion = $frontCushion = array(
-		'area'=> 0, 
-		'centroid'=> 0
-		);
-
-	$maxCoG = getWeights(array('hull', 'engines', 'misc', 'max_load')); // always need to max load case!
-
-	if ($data['dual_comp'] == 'dual')
+	$perimeter_rear = Perimeter_Polygon($rearSect['coords']); // not closed at front yet!
+	
+	if (!empty($data['dividerfront']))  // we've got a divider skirt!
 	{
 		$frontSect['area'] = Area_Polynomial($frontSect['coords']);
 		$frontSect['centroid'] = Centroid_X_Polynomial($frontSect['coords']);
-		// top and bottom edges are the only external sides!
-		$frontSect['ext_perimeter'] = 2 * (($divSeg['coords']['root'] + $data['dividerfront']) - ($bowSeg['coords']['root'] + $data['bowskirtfront']));
-		
 		$divSeg['area'] = Area_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['divradius']); 
 		$divSeg['centroid'] = Centroid_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['divradius'], $data['dividerfront'] + $divSeg['coords']['root']);
-		$divSeg['ext_perimeter'] = Perimeter_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['divradius']);
-
-		$rearCushion['area'] = $rearSect['area'] + $divSeg['area'];
-		$rearCushion['centroid'] = (($rearSect['centroid'] * $rearSect['area']) + ($divSeg['centroid'] * $divSeg['area'])) / ($divSeg['area'] + $rearSect['area']);
-		$frontCushion['area'] = $frontSect['area'] - $divSeg['area'] + $bowSeg['area'];
-		$frontCushion['centroid'] = (($frontSect['centroid'] * $frontSect['area']) + ($bowSeg['centroid'] * $bowSeg['area']) - ($divSeg['centroid'] * $divSeg['area'])) / ($frontSect['area'] + $bowSeg['area'] - $divSeg['area']);
-		
-		$tailHvy_CoG = getWeights(array('hull', 'engines', 'misc', 'pass_rearward'));
-		$noseHvy_CoG = getWeights(array('hull', 'engines', 'misc', 'pass_forward'));	
-		
-		// adjust front cushion AREA to balance craft on the CofG (i.e effectively moves the cushion centroid to match the CoG centroid)
-		$maxLoad_FrontCushion = $tailHvy_FrontCushion = $noseHvy_FrontCushion = $maxRearCushion = $tailHvy_RearCushion = $noseHvy_RearCushion = array(
-			'area'=> 0, 
-			'pressure'=>0, 
-			'airflow'=>0,
-			'liftPower'=>0,
-			); 
-		$maxLoad_RearCushion['area'] = $tailHvy_RearCushion['area'] = $noseHvy_RearCushion['area'] = $rearCushion['area'];
-		
-		// tail-heavy case
-		$tailHvy_FrontCushion['area'] = (($rearCushion['area'] * $rearCushion['centroid']) - ($rearCushion['area'] * $tailHvy_CoG['cog']))
-						/
-						($tailHvy_CoG['cog'] - $frontCushion['centroid']);
-		
-		// check that the change direction matches the front compartment air feed type!
-		if (($tailHvy_FrontCushion['area'] < $frontCushion['area']) < 1 AND $data['feed_type']!='underskirt') // plennum pressueris so can't fall!
-			$err_array('feed_type','Pressure in front compartment has risen above the rear - not possible with an underskirt air feed. Change the feed type or move postions of rear-heavy load.');
-		elseif (($tailHvy_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // skirt feed so can't rise!
-			$err_array('feed_type','Pressure in front campartment has fallen below the rear - this is not possible with an plenum air feed.   Change the feed type or move positions of rear-heavy load.');
-
-		// nose-heavy case
-		$noseHvy_FrontCushion['area'] = (($rearCushion['area'] * $rearCushion['centroid']) - ($rearCushion['area'] * $noseHvy_CoG['cog']))
-						/
-						($noseHvy_CoG['cog'] - $frontCushion['centroid']);
-		
-		// check that the change direction matches the front compartment air feed type!
-		if (($noseHvy_FrontCushion['area'] < $frontCushion['area']) AND $data['feed_type']!='underskirt') // plenum pressure max - so can't fall!
-			$err_array('feed_type','Pressure in front compartment has risen above the rear - not possible with an underskirt air feed. Change the feed type or move nose-heavy load positions.');
-		elseif (($noseHvy_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // skirt feed so can't rise!
-			$err_array('feed_type','Pressure in front campartment has fallen below the rear - this is not possible with a plenum air feed.  Change the feed type or move nose-heavy load positions.');
-		
-		
-		// calculate the pressures in each compartment from the relative change in the area
-		$noseHvy_RearCushion['pressure'] = $noseHvy_CoG['mass'] / ($noseHvy_RearCushion['area'] + $noseHvy_FrontCushion['area']);
-		$tailHvy_RearCushion['pressure'] = $tailHvy_CoG['mass'] / ($tailHvy_RearCushion['area'] + $noseHvy_FrontCushion['area']);
-		// front comp. pressure is same force but over original larger/smaller area
-		$noseHvy_FrontCushion['pressure'] = ($noseHvy_FrontCushion['area'] * $noseHvy_RearCushion['pressure']) / $frontCushion['area'];
-		
-		$tailHvy_FrontCushion['pressure'] = ($tailHvy_FrontCushion['area'] * $tailHvy_RearCushion['pressure']) / $rearCushion['area'];
-		
-		// calculate air flow through each compartment
-		// air flow is loss from the external (atmosphere exposed) sides of the cusion area PLUS (or minus) the loss/gain from the divider
-		$tailHvy_FrontCushion['airflow'] = 
-			liftAirFlow($data['skirtGap'], $frontSect['ext_perimeter'] + $bowSeg['ext_perimeter'], $tailHvy_FrontCushion['pressure'], $data['skirt']);
-			+
-			liftAirFlow($data['skirtGap'], $divSeg['ext_perimeter'], $tailHvy_FrontCushion['pressure'] - $tailHvy_RearCushion['pressure'], $data['skirt']);
-		$noseHvy_FrontCushion['airflow'] = 
-			liftAirFlow($data['skirtGap'], $frontSect['ext_perimeter'] + $bowSeg['ext_perimeter'], $noseHvy_FrontCushion['pressure'], $data['skirt']);
-			+
-			liftAirFlow($data['skirtGap'], $divSeg['ext_perimeter'], $noseHvy_FrontCushion['pressure'] - $noseHvy_RearCushion['pressure'], $data['skirt']);
-
-		$tailHvy_RearCushion['airflow'] = 
-			liftAirFlow($data['skirtGap'], $rearSect['ext_perimeter'], $tailHvy_RearCushion['pressure'], $data['skirt']);
-			+
-			liftAirFlow($data['skirtGap'], $divSeg['ext_perimeter'], $tailHvy_RearCushion['pressure'] - $tailHvy_FrontCushion['pressure'], $data['skirt']);
-		$noseHvy_RearCushion['airflow'] = 
-			liftAirFlow($data['skirtGap'], $rearSect['ext_perimeter'], $tailHvy_FrontCushion['pressure'], $data['skirt']);
-			+
-			liftAirFlow($data['skirtGap'], $divSeg['ext_perimeter'], $tailHvy_RearCushion['pressure'] - $tailHvy_FrontCushion['pressure'], $data['skirt']);
-
-		// now calc lift power required for each compartment
-		// @@@ this equires the fee area for plenum-fed craft (i.e. feed holes sizes)
-		// for a plenum feed we should be able to calc the plenum pressure as being the maximum of the front and rear pressures (plenum has to be able to "pump" either to this pressure level)
-		//.. .then wokr out hole area to maintain this pressure from the total airflow?
-		$tailHvy_FrontCushion['liftPower'] = LiftPower(
-					$tailHvy_FrontCushion['pressure'], 
-					$tailHvy_FrontCushion['airflow'], 
-					$feedArea, 
-					$data['directFeed'], 
-					$data['reserve'] / 100, 
-					$data['skirt']);  
-
-		
-
-		//  ... for a plenum feed, calculate the plenum pressure required for the front compartment and check it's possible
-		// ... based on the loss area (skirt gap) & pressure in each compartment
-
-		
-		// Check the front compartmentment supports this pressure (it could be higher or lower than main comp depending on whether it's a plenum feed or a under-skirt feed).
-		
-		
-	}
-	else
-	{
-		// only one cushion area
-		$tailHvy_CoL['area'] = $rearCushion['area'] = $rearSect['area'] + $bowSeg['area'];
-		$tailHvy_CoL['centroid'] = $rearCushion['centroid'] = (($rearSect['centroid'] * $rearSect['area']) + ($bowSeg['area'] * $bowSeg['area'])) / ($bowSeg['area'] + $rearSect['area']);
-		$cushionArea = $frontCushion['area'] + $rearCushion['area'];
-		$perimeter = $rearSect['ext_perimeter'] + $bowSeg['ext_perimeter'];
+		$perimeter_front = Perimeter_Polygon($frontSect['coords']) + Perimeter_Circular_Segment($data['hullWidth'] - ($data['contactoffset'] * 2), $data['bowradius']);
 	}
 
+//dbug($frontSect['coords']);
 dbug($bowSeg,'bowseg');
 dbug($frontSect,'frontsect');
 dbug($divSeg,'divseg');
 dbug($rearSect,'rearsect');
 
+	// now combine/subtract the areas to create front and rear cushions and calc CoL for each
+	$rearCushion = $frontCushion = array('area'=> 0, 'centroid'=> 0);
+	$forwardCoL = $rearwardCoL = array('centroid'=>0,'moment'=>0);
+	if (!empty($data['dividerfront']))
+	{
+		$rearCushion['area'] = $rearSect['area'] + $divSeg['area'];
+		$rearCushion['centroid'] = (($rearSect['centroid'] * $rearSect['area']) + ($divSeg['centroid'] * $divSeg['area'])) / ($divSeg['area'] + $rearSect['area']);
+		$frontCushion['area'] = $frontSect['area'] - $divSeg['area'] + $bowSeg['area'];
+		$frontCushion['centroid'] = (($frontSect['centroid'] * $frontSect['area']) + ($bowSeg['centroid'] * $bowSeg['area']) - ($divSeg['centroid'] * $divSeg['area'])) / ($frontSect['area'] + $bowSeg['area'] - $divSeg['area']);
+		
+		// forwardCoL assumes front compartment pressure is the same as the rearward compartment pressure
+		$forwardCoL['centroid'] = 
+				(($rearCushion['centroid'] * $rearCushion['area']) + ($frontCushion['centroid'] * $frontCushion['area']))
+				/
+				($rearCushion['area'] + $frontCushion['area']);
+		// rearward case assume the front compartment is at 9% of the main cushion pressure
+		$rearwardCoL['centroid'] = 
+				(($rearCushion['centroid'] * $rearCushion['area']) + ($frontCushion['centroid'] * $frontCushion['area'] * 0.00))
+				/
+				($rearCushion['area'] + ($frontCushion['area'] * 0.00));
+	}
+	else
+	{
+		// only one cushion area
+		$rearwardCoL['area'] = $rearCushion['area'] = $rearSect['area'] + $bowSeg['area'];
+		$rearwardCoL['centroid'] = $rearCushion['centroid'] = (($rearSect['centroid'] * $rearSect['area']) + ($bowSeg['area'] * $bowSeg['area'])) / ($bowSeg['area'] + $rearSect['area']);
+	}
+
 dbug($rearCushion, 'cushion rear');
-dbug($frontCushion, 'cushion front'); 
+dbug($frontCushion, 'cushion front');
 
-dbug($noseHvy_RearCushion,'nose hvy rear');
-dbug($noseHvy_FrontCushion,'nose hvy front');
-dbug($tailHvy_RearCushion,'tail hvy rear');
-dbug($tailHvy_FrontCushion,'tail hvy front');
+/*
+ There are three load cases for the cushion area and perimeter:
 
-	
+ 1.	nose-heavy - where cushion area is at max size and pressure is as per weight
+ 2. rear loading - where cushion area is rear-only therefore pressure is higher and peremeter smaller.
+ 3. maximum design weight with max cushion area & perimeter.
+ 
+ We do the performance calcs on all three cases
+	- resulting in different hump curves, thrust curves and, becauae of the different weigths, lift power requirements.
 
-	
-	
+*/
 
-
-
-
-
-
-
-
-
-
-	$alldata = $titles = array(); // graph data & plot titles
-	$cases = array(
-		'Nose Heavy'=> array( 
-			'result'=>array(), 
-			'cushionArea'=>$frontCushion['area'] + $rearCushion['area'],
-			'perimeter'=>$rearSect['ext_perimeter'] + $frontSect['ext_perimeter'] + $divSeg['ext_perimeter'] + $bowSeg['ext_perimeter'],
-			'mass'=>$noseHvy_CoG['mass'],
-			),
-
-		'Tail Heavy'=> array( 
-			'result'=>array(), 
-			'cushionArea'=>$frontCushion['area'] + $rearCushion['area'],
-			'perimeter'=>$rearSect['ext_perimeter'] + $frontSect['ext_perimeter'] + $divSeg['ext_perimeter'] + $bowSeg['ext_perimeter'],
-			'mass'=>$noseHvy_CoG['mass'],
-			),
-
-		'Nose Heavy'=> array( 
-			'result'=>array(), 
-			'cushionArea'=>$frontCushion['area'] + $rearCushion['area'],
-			'perimeter'=>$rearSect['ext_perimeter'] + $frontSect['ext_perimeter'] + $divSeg['ext_perimeter'] + $bowSeg['ext_perimeter'],
-			'mass'=>$noseHvy_CoG['mass'],
-			),
-			
-		);
-
-	// case 1 = nose heavy
-	$case[] = array(
-			'cushionArea'=>$frontCushion['area'] + $rearCushion['area'],
-			'perimeter'=>$perimeter_rear + $perimeter_front, 
-			'mass'=> $noseHvy_CoG['mass'] + $tailHvy_CoG['mass'],
-			);
-	$titles[] = 'Nose heavy';
-	$result = humpDragCalc($case);
-	$alldata[] = $result['humpDrag'];
-
-	$titles[] = 'Nose heavy thrust';
-	$alldata = $result['thrust'];
-	
-	
-
-
-	$titles[] = 'Thrust';
-	$alldata[] = humpDragCalc($case);
-	
-function humpDragCalc($case)
-{
-
-}
-
-			
-			
-	
+	$cushionArea = $frontCushion['area'] + $rearCushion['area'];
+	$perimeter = $perimeter_rear + $perimeter_front;
+		
+	if ($cushionArea <= 0)
+		$cushionArea = 1;
+		
+	$rearwardCoG['cushionPress'] = $rearwardCoG['mass'] / $rearCushion['area']; // only runs of rear cusions in this case
+	$forwardCoG['cushionPress'] = $forwardCoG['mass'] / ($frontCushion['area'] + $rearCushion['area']);  
 	
 	$designCushionPressure = $data['designWeight'] * 9.81 / $cushionArea;
-	$cruiseCushionPressure = min(array($noseHvy_CoG['cushionPress'], $tailHvy_CoG['cushionPress']));  // use whichever is lowest
+	$cruiseCushionPressure = min(array($forwardCoG['cushionPress'], $rearwardCoG['cushionPress']));  // use whichever is lowest
 
-	$designLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $designCushionPressure, $data['skirt']);
-	$cruiseLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $cruiseCushionPressure, $data['skirt']);
+	$designLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $designCushionPressure, $roAir, $data['skirt']);
+	$cruiseLiftAirFlow = liftAirFlow($data['skirtGap'], $perimeter, $cruiseCushionPressure,$roAir, $data['skirt']);
 	
-	$feedArea = 0;
-	if (!empty ($data['feed_holes']) AND !$data['directFeed'])
-		foreach ($data['feed_holes'] as $hole)
-			$feedArea += $hole['qty'] * pi() * pow($hole['diam'],2)/4;
-	
-	$designLiftPower = LiftPower($designCushionPressure, $designLiftAirFlow, $feedArea, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
-	$cruiseLiftPower = LiftPower($cruiseCushionPressure, $cruiseLiftAirFlow, $feedArea, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
+	$feedArea = (isset($data['hole1qty']) ? ($data['hole1qty'] * pi() * pow($data['hole1size'],2) /4) : 0) 
+				+  (isset($data['hole2qty']) ? ($data['hole2qty'] * pi() * pow($data['hole2size'],2) /4) : 0) 
+				+ (isset($data['hole3qty']) ? ($data['hole3qty'] * pi() * pow($data['hole3size'],2) /4) : 0); 
+				
+	$designLiftPower = LiftPower($designCushionPressure, $designLiftAirFlow, $feedArea, $roAir, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
+	$cruiseLiftPower = LiftPower($cruiseCushionPressure, $cruiseLiftAirFlow, $feedArea, $roAir, $data['directFeed'], $data['reserve'] / 100, $data['skirt']);  
 
 	// calculate power available to thrust in W
 	$maxThrustPower = $data['tPower'] * 745.699872;
@@ -453,12 +308,12 @@ function humpDragCalc($case)
 	{
 		$drag[$key]['mph'] = $data['maxSpeed'] * $drag[$key]['index']; // mph
 		$drag[$key]['m/s'] = $drag[$key]['mph'] * 0.44704;  // m/sec
-		$drag[$key]['Max Mom Drag'] = momentumDrag($drag[$key]['m/s'], $designLiftAirFlow);
-		$drag[$key]['Cruise Mom Drag'] = momentumDrag($drag[$key]['m/s'], $cruiseLiftAirFlow);
-		$drag[$key]['Profile Drag'] = profileDrag($drag[$key]['m/s'], $data['frontalArea'], $data['dragCoeff']);
+		$drag[$key]['Max Mom Drag'] = momentumDrag($drag[$key]['m/s'], $designLiftAirFlow, $roAir);
+		$drag[$key]['Cruise Mom Drag'] = momentumDrag($drag[$key]['m/s'], $cruiseLiftAirFlow, $roAir);
+		$drag[$key]['Profile Drag'] = profileDrag($drag[$key]['m/s'], $data['frontalArea'], $data['dragCoeff'], $roAir);
 // fudge factor for wave drag is 2!!
-		$drag[$key]['Max Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $designCushionPressure, $cushionArea);
-		$drag[$key]['Cruise Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $cruiseCushionPressure, $cushionArea);
+		$drag[$key]['Max Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $designCushionPressure, $cushionArea, $roWater);
+		$drag[$key]['Cruise Wave Drag'] = 2 * waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $drag[$key]['m/s'], $data['hullLength'], $beamLengthRatio, $cruiseCushionPressure, $cushionArea, $roWater);
 
 // estimate is that wetting drag is between 35% (perfect trim & skirts) and 55% (bad trim) of the total drag (Y&B)
 // fudge factor is 45% to account for slightly rougher water and less perfect trim
@@ -466,9 +321,9 @@ function humpDragCalc($case)
 //			$drag[$key]['Wetting Drag'] = 0.45 * ($drag[$key]['Max Mom Drag'] + $drag[$key]['Profile Drag'] + $drag[$key]['Max Wave Drag']);
 		$drag[$key]['Wetting Drag'] = 0.55 * ($drag[$key]['Max Mom Drag'] + $drag[$key]['Max Wave Drag']);
 
- //echo 'Max Thrust  ', $maxThrustPower, '<br>', $data['fanDiam'], '<br>', $data['prop'], '<br>', $drag[$key]['m/s'], '<br>', '<br>', $data['twinFan'], '<br>', (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0), '<br>' . thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));		
-		$drag[$key]['Max Thrust'] = thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));
-//	$drag[$key]['Cruise thrust'] = thrust($cruiseThrustPower, $data['fanDiam'], $propArray[$data['prop']], $drag[$key]['m/s'], $twinFanArray[$data['twinFan']] , $data['splitterHeight']);
+ //echo 'Max Thrust  ', $maxThrustPower, '<br>', $data['fanDiam'], '<br>', $data['prop'], '<br>', $drag[$key]['m/s'], '<br>', $roAir, '<br>', $data['twinFan'], '<br>', (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0), '<br>' . thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $roAir, $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));		
+		$drag[$key]['Max Thrust'] = thrust($maxThrustPower, $data['fanDiam'], $data['prop'], $drag[$key]['m/s'], $roAir, $data['twinFan'], (isset($data['splitterHeight']) ? $data['splitterHeight'] : 0));
+//	$drag[$key]['Cruise thrust'] = thrust($cruiseThrustPower, $data['fanDiam'], $propArray[$data['prop']], $drag[$key]['m/s'], $roAir, $twinFanArray[$data['twinFan']] , $data['splitterHeight']);
 	}
 
 	$alldata = array();
@@ -540,34 +395,30 @@ function humpDragCalc($case)
 	$thrustCruise = $drag[$cruiseSpeed['key']]['Max Thrust'] * $data['thrustY']; // cruise speed thrust
 	$thrustMin = end($drag)['Max Thrust'] * $data['thrustY']; // thrust at max speed
 
-	$maxCoG['moment'] = $maxCoG['moment'] - $thrustMax; // adjust for thrust pushing nose down
-	if ($data['dual_comp'] == 'dual')
-	{ // dual compartment
-		$noseHvy_CoG['moment'] = $noseHvy_CoG['moment'] - $thrustMax; // adjust for thrust pushing nose down
-		$tailHvy_CoG['moment'] = $rearCoG['moment'] - $thrustMax; // adjust for thrust pushing nose down
-		// validation
-		if ($noseHvy_CoG['mass'] > $tailHvy_CoG['mass'])
-			$err_array['pass_forward'][0] = 'Nose-heavy weight (' . ($noseHvy_CoG['mass']/9/81) . ') is greater than tail-heavy weight (' . ($tailHvy_CoG['mass']/9/81) . ') - please check quantities and weights.';
-		if ($noseHvy_CoG['cog'] > $tailHvy_CoG['cog'])
-			$err_array['pass_forward'][0] = 'Nose-heavy CofG is closer to the bow than the tail-heavy case - please check positions and weights.';
-	}
-	
+	$forwardCoG['moment'] = $forwardCoG['moment'] - $thrustMax; // adjust for thrust pushing nose down
+
+	$forwardCoG['cog'] = $forwardCoG['moment'] / $forwardCoG['mass'];
+	$rearwardCoG['cog'] = $rearwardCoG['moment'] / $rearwardCoG['mass'];
+		
+	// validation
+	if ($forwardCoG['mass'] > $rearwardCoG['mass'])
+		$err_array['pass_forward'][0] = 'Nose-heavy weight (' . ($forwardCoG['mass']/9/81) . ') is greater than tail-heavy weight (' . ($rearwardCoG['mass']/9/81) . ') - please check quantities and weights.';
+	if ($forwardCoG['cog'] > $rearwardCoG['cog'])
+		$err_array['pass_forward'][0] = 'Nose-heavy CofG is closer to the bow than the tail-heavy case - please check positions and weights.';
 
 		
 		
 //dbug calcs
-$noseHvy_CoL['moment'] = $noseHvy_CoL['centroid'] * (($rearCushion['area'] + $frontCushion['area']) * $noseHvy_CoG['cushionPress']);
-$tailHvy_CoL['moment'] = $tailHvy_CoL['centroid'] * (($rearCushion['area'] + ($frontCushion['area'] * 0.00)) * $tailHvy_CoG['cushionPress']);
+$forwardCoL['moment'] = $forwardCoL['centroid'] * (($rearCushion['area'] + $frontCushion['area']) * $forwardCoG['cushionPress']);
+$rearwardCoL['moment'] = $rearwardCoL['centroid'] * (($rearCushion['area'] + ($frontCushion['area'] * 0.00)) * $rearwardCoG['cushionPress']);
 
 dbug('CoG');
-dbug($noseHvy_CoG);
-dbug($tailHvy_CoG);
-dbug($maxCoG);
-
+dbug($forwardCoG);
+dbug($rearwardCoG);
 
 dbug('CoL');
-dbug($noseHvy_CoL);
-dbug($tailHvy_CoL);
+dbug($forwardCoL);
+dbug($rearwardCoL);
 
 
 				
@@ -585,9 +436,8 @@ dbug($tailHvy_CoL);
 
 // functions based on the hovercraft design calculator excel sheet Rev 4
 
-function liftAirFlow($airgap, $perimeter, $cushionPressure, $skirt = 'bag') 
+function liftAirFlow($airgap, $perimeter, $cushionPressure, $roAir, $skirt = 'bag') 
 {
-	global $roAir;
 //This function returns the lift air flow required
 	if ($skirt == 'bag')
 		$cd = 0.9;
@@ -597,40 +447,34 @@ function liftAirFlow($airgap, $perimeter, $cushionPressure, $skirt = 'bag')
 	return (0.65 * $airgap * $perimeter * sqrt(2 * $cushionPressure / $roAir));
 }
 
-function liftPower($cushionPressure, $liftFlowRate, $feedArea, $directFeed, $reserve, $skirt='bag')
+function liftPower($cushionPressure, $liftFlowRate, $feedArea, $roAir, $directFeed, $reserve, $skirt='bag')
 {
-	global $roAir;
 	$cd = 0.65; // discharge coefficient
+	$plenum_dP = ($roAir / 2) * pow(($liftFlowRate / ($cd * (empty($feedArea) ? 1 : $feedArea))),2);
 	if ($directFeed) 
 		$total_dP = $cushionPressure;
 	else
-	{
-		$plenum_dP = ($roAir / 2) * pow(($liftFlowRate / ($cd * (empty($feedArea) ? 1 : $feedArea))),2);
 		$total_dP = $plenum_dP + $cushionPressure;
-	}
 	return (1 + $reserve) * $liftFlowRate * $total_dP / 0.5;
 }
 
-function momentumDrag($velocity, $liftFlowRate)
+function momentumDrag($velocity, $liftFlowRate, $roAir)
 {
-	global $roAir;
 	// Finds the momentum drag. This is drag caused by accelerating the
 	// lift air up to craft speed
 	return $roAir * $liftFlowRate * $velocity;
 }
 
-function profileDrag($velocity, $frontalArea , $cd)
+function profileDrag($velocity, $frontalArea , $cd, $roAir)
 {
-	global $roAir;
 	// Finds the profile drag. This is drag caused by the passage of air over/round the vehicle
 	// $cd is the drag coefficent
 	return $frontalArea * $cd * $roAir * pow($velocity ,2) / 2;
 // ProfileDrag = FrontalArea * CD * (RoAir * Velocity ^ 2) / 2
 }
 
-function waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $velocity, $craftLength, $beamLengthRatio, $cushionPressure, $cushionArea)
+function waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $velocity, $craftLength, $beamLengthRatio, $cushionPressure, $cushionArea, $roWater)
 {
-	global $roWater;
 //print_r(func_get_args());
 	// finds the wavedrag
 	// has to lookup the value of the coefficient of drag from a table
@@ -661,9 +505,8 @@ function waveDrag($froudeN, $beamL, $waveDrag, $beamCol, $beamFr, $velocity, $cr
 	return ($Cw * (pow($cushionPressure,2)) * sqrt($cushionArea)) / ($roWater * 9.81);
 }
 
-function wettingDrag($perimeterArea, $skirt, $velocity)
+function wettingDrag($perimeterArea, $skirt, $velocity, $roWater)
 { 
-	global $roWater;
 // a real bodge!!
 // using estimated drag coefficent for finger bag skirts
 // assume skirt contadct area is 1/10th of hull width
@@ -676,10 +519,8 @@ function wettingDrag($perimeterArea, $skirt, $velocity)
 }
 
 
-function thrust($power, $diamProp, $thrusterType, $velocity, $liftType, $splitterHeight)
+function thrust($power, $diamProp, $thrusterType, $velocity, $roAir, $liftType, $splitterHeight)
 {
-	global $roAir;
-
 //dbug(func_get_args());
 
 	if ($power <= 0)
@@ -863,23 +704,4 @@ function Perimeter_Polygon($coords = array())
 	for ($i = 1; $i < count($coords); $i++)
 			$per += sqrt(pow(abs($coords[$i]['x'] - $coords[$i -1]['x']), 2) + pow(abs($coords[$i]['y'] - $coords[$i - 1]['y']), 2));
 	return $per;
-}
-
-function getWeights($groups = array())
-{
-	global $data;
-	// CofG calc - work out weights and moments for forward and rearward cases
-	$result = array('mass'=>0, 'moment'=> 0, 'cog'=>0);
-	foreach ($groups as $group)
-		foreach ($data[$group] as $w)
-		{
-			if (!empty($w['qty']))
-			{
-				$result['mass'] += $w['qty'] * $w['M'] * 9.81;
-				$result['moment'] += ($w['qty'] * $w['M'] * 9.81) * $w['X'];
-			}
-		}
-	if (!empty($result['mass']))
-		$result['cog'] = $result['moment'] / $result['mass'];
-	return $result;
 }
