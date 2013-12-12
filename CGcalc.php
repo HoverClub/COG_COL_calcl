@@ -108,7 +108,17 @@ if (!$is_club_member)
 		
 	// get rid of any old columns we don't need - if they exist
 	// $row has a list of all columns
-	$oldcols = array('cruiseWeight', 'designWeight', 'rectShape', 'hole1qty', 'hole1size', 'hole2qty', 'hole2size', 'hole3qty', 'hole3size');
+	$oldcols = array(
+			'cruiseWeight', 
+			'designWeight', 
+			'rectShape', 
+			'hole1qty', 
+			'hole1size', 
+			'hole2qty', 
+			'hole2size', 
+			'hole3qty', 
+			'hole3size'
+		);
 	foreach ($oldcols as $col)
 		if (array_key_exists($col, $row)) 
 			$_REQUEST  = $smcFunc['db_query']('', "
@@ -218,7 +228,7 @@ if (!$is_club_member)
 		array('qty' => '1', 'title' => 'Equipment & tools etc.', 'M' => '25', 'X' => '1.5'),
 		);
 
-	// see if a craft has been selected
+	// has a craft been selected?
 	if (isset($_POST['selName']))		
 	{
 		$selName = trim($_POST['selName']);
@@ -265,7 +275,7 @@ if (!$is_club_member)
 			$err_array['prop'] = 'You can\'t use a prop for thrust in an integrated craft';
 
 		// validate the form numeric input data
-		// note that the order of the checks is importanty as sdome cariables are sued to check others so must be entered first
+		// NOTE - the order of the checks is important as some variables are used to validate others so must be validated first!!
 		
 		validatenumber('hullLength', '200', '1');
 		validatenumber('hullWidth', $data['hullLength'], '0.1');
@@ -276,8 +286,9 @@ if (!$is_club_member)
 		validatenumber('skirtGap', '0.3', '0.001');
 		validatenumber('splitterHeight', '1', '0.05'); 
 		
-		// feed holes fields are optional unless it's indirect feed
-		if (!$data['directFeed']) 
+		if ($data['directFeed'])
+			$data['feed_type'] = 'underskirt'; // if direct feed then front comp must be fed from under part. skirt
+		else // feed holes fields are optional unless it's indirect feed
 		{
 			if (isset($_REQUEST['feed_holes']))
 			{
@@ -299,7 +310,7 @@ if (!$is_club_member)
 				$data['feed_holes'] = array_values($_REQUEST['feed_holes']); // re-index in case we removed some of them
 			}
 		}
-
+			
 		validatenumber('reserve','200');
 		validatenumber('fanDiam','10');
 		validatenumber('thrustY','10', '0.6');

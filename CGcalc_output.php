@@ -189,12 +189,12 @@
 			
 				<tr align="middle">
 				  <td class="highlight2">Design cushion pressure @ weight</td>
-				  <td class="approvebg2">' . round($designCushionPressure,2) . 'Pa (' . round($designCushionPressure * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($data['designWeight'],2) . 'Kg</td>
+				  <td class="approvebg2">' . round($designCushionPressure,2) . 'Pa (' . round($designCushionPressure * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($designWeight /  9.81,2) . 'Kg</td>
 				</tr>
 
 				<tr align="middle">
 				  <td class="highlight2">Cruise cushion pressure @ weight</td>
-				  <td class="approvebg2">' . round($cruiseCushionPressure,2) . 'Pa (' . round($cruiseCushionPressure * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($forwardCoG['mass'] /  9.81,2) . 'Kg</td>
+				  <td class="approvebg2">' . round($cruiseCushionPressure,2) . 'Pa (' . round($cruiseCushionPressure * 0.0208854342,1) .'lbf/ft^2)' . ' @ ' . round($cruiseWeight /  9.81,2) . 'Kg</td>
 				</tr>'
 
 				. (($data['directFeed']) ? '' : '<tr align="middle">
@@ -307,14 +307,14 @@
 		);
 		
 	doradioinput(
-		'directFeed', 
+		'directFeed',
 		array('0'=>'Indirect', '1'=>'Direct'),
 		'Direct means the lift air goes directly into the cushion (no duct or plenum), <strong>indirect</strong> that it passes through a plenum, loop or bag before reaching the main cushion',
 		'Skirt feed type',
 		false,
 		array(
-			'0'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'block\';"',
-			'1'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'none\';"')
+			'0'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'block\';getElementById(\'feed_type\').style.display =\'block\';"',
+			'1'=>$dis . ' onclick="getElementById(\'feedholes\').style.display =\'none\';getElementById(\'feed_type\').style.display =\'none\';"')
 		);
 	echo '
 		</dl>
@@ -366,6 +366,14 @@
 	doMtextinput('misc','Miscellaneous Components','Other items in the craft (skirt, windscreen. tools, seats, batteries, etc. Initial items shown are examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
 	
 	doMtextinput('max_load','Passengers, Fuel and Equipment - maximum.','Combined with the hull, engines and misc., the is the maximum load the craft is designed to carry (to remove an item set the quantity to zero).', $cols, $dis);
+	echo '
+		</dl>
+		<hr class=!"hrcolor" size="1" />
+		<dl>
+			<dd><strong>CUSHION TYPE</strong></dd>
+			<dt></dt>
+		</dl>
+		<dl>';
 	doradioinput(
 		'dual_comp', 
 		array('single'=>'Single compartment cushion','dual'=>'Dual compartment cushion'),
@@ -379,21 +387,26 @@
 	echo '
 			</dl>
 			<div id="div_divider" style="display:' . ($data['dual_comp']=='dual' ? 'block' : 'none') . ';">
-				<dl>
-					<dd><strong>DUAL COMPARTMENT</strong></dd>
-					<dt></dt>
-				</dl>
 				<dl>';
 	dotextinput('dividerfront', 5, 5, 'Cushion Partition (divider) Offset', 'How far from the front of the hull the front of the divider or partition skirt is.', 'metres', '', $dis);	
-	dotextinput('divradius', 5, 5, 'Divider/partition skirt radius', 'The approximate radius of the divider/partition skirt when the the craft is on-cushion).', 'metres', '', $dis);	
+	dotextinput('divradius', 5, 5, 'Divider/partition skirt radius', 'The approximate radius of the divider/partition skirt when the the craft is on-cushion).', 'metres', '', $dis);
+	echo '
+				</dl>
+				<div id="feed_type" style="display:' . ($data['directFeed'] ? 'none' : 'block') . ';">
+					<dl>';
 	doradioinput(
 		'feed_type', 
-		array('underskirt'=>'Feed is from under divider skirt','dual'=>'Feed is from plenum.'),
-		'If your craft has an air feed plenum around the outer edge, then feed air for the front compartment can be supplied either from the main compartment (under the divider skirt lower edge - i.e. no feed holes in front compartment section) OR fed from the plenum feed holes in the fornt compartment.',
+		array('underskirt'=>'Feed is from under divider skirt','plenum'=>'Feed is from plenum.'),
+		'If your craft has an air feed plenum around the outer edge, then feed air for the front compartment can be supplied either from the main compartment (under the divider skirt lower edge - i.e. there are no feed holes in front compartment section of the plenum) OR fed from plenum feed holes in the front compartment.',
 		'Front Compartment Feed',
 		false, 
 		array($dis, $dis)
 		);
+	echo '
+					</dl>
+				</div>
+				<dl>';
+	
 	doMtextinput('pass_forward','Passengers, Fuel and Equipment - in NOSE heavy load postion.','The is the worst case FORWARD loading position, usually Driver and any passengers sitting at his side, with any extra equipment all mounted in the most forward position possible. The idea is to cover the most nose-down load case that might be envisaged. Initial items shown are examples - you can edit or remove them if you wish.', $cols, $dis);
 	doMtextinput('pass_rearward','Passengers, Fuel and Equipment - in the TAIL heavy load postion.','This is the worst case REARWARD load setup- usually with only the driver up front with all passengers in their rear seats with any equipment,fual,etc. also all at the rear. The idea is to cover the most rear-heavy case that can be envisaged. Initial items shown are examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
 	echo '

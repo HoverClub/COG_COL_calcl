@@ -144,17 +144,19 @@ function doMtextinput($var, $title, $descr, $cols = array(), $inputparms='')
 		<dd id="dd_' . $var . '">
 			<table id="CGtable_' . $var . '">
 			<tr>';
-	// construct html inpu paramters for each column
+	// construct html input tag parameters for each column
 	$params = array();
 	foreach ($cols as $index=>$col)
 	{
 		echo '
 				<th>' . $col['title'] . '</th>';
-		$params[$index] = $inputparms . (isset($col['type']) ? ' type="' . $col['type'] . '"' : '') . (isset($col['size']) ? ' size="' . $col['size'] . '"' : '') . 
-			($col['type'] == 'range' ? 
-				(isset($col['max']) ? ' max="' . $col['max'] . '"' : '') . 
-				(isset($col['max']) ? ' min="' . $col['min'] . '"' : '') . 
-				(isset($col['step']) ? ' step="' . $col['step'] . '"' : '')
+		$params[$index] = $inputparms . (isset($col['size']) ? ' size="' . $col['size'] . '"' : '') . 
+			(isset($col['type']) ? ' type="' . $col['type'] . '"' .  
+				($col['type'] == 'range' ? 
+					(isset($col['max']) ? ' max="' . $col['max'] . '"' : '') . 
+					(isset($col['max']) ? ' min="' . $col['min'] . '"' : '') . 
+					(isset($col['step']) ? ' step="' . $col['step'] . '"' : '')
+				: '')
 			: '');
 	}
 

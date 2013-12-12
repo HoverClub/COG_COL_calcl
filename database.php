@@ -39,7 +39,6 @@ elseif (!defined('SMF'))
 		userid INT(10) UNSIGNED NOT NULL, 
 		craftName VARCHAR(30) NOT NULL,
 		date INT(10) NOT NULL,
-		rectShape BOOLEAN,
 		hullLength VARCHAR(10) NOT NULL,
 		maxSpeed VARCHAR(5) NOT NULL,
 		frontalArea VARCHAR(10) NOT NULL,
@@ -49,12 +48,6 @@ elseif (!defined('SMF'))
 		twinFan VARCHAR(8) NOT NULL,
 		splitterHeight VARCHAR(10) NOT NULL,
 		directFeed BOOLEAN,
-		hole1qty VARCHAR(5) NOT NULL,
-		hole1size VARCHAR(5) NOT NULL,
-		hole2qty VARCHAR(5) NOT NULL,
-		hole2size VARCHAR(5) NOT NULL,
-		hole3qty VARCHAR(5) NOT NULL,
-		hole3size VARCHAR(5) NOT NULL,
 		reserve VARCHAR(3) NOT NULL,
 		prop BOOLEAN,
 		fanDiam VARCHAR(5) NOT NULL,
@@ -70,7 +63,7 @@ elseif (!defined('SMF'))
 		'misc'=>'', 
 		'pass_forward'=>'', 
 		'pass_rearward'=>'',
-		'designWeight'=>'',
+		'max_load'=>'',
 		'sternChamf'=>'',
 		'bowskirtfront'=>'',
 		'dividerfront'=>'',
@@ -78,6 +71,9 @@ elseif (!defined('SMF'))
 		'divradius'=>'',
 		'contactoffset'=>'',
 		'thrustY'=>'',
+		'dual_comp'=>'',
+		'feed_type'=>'',
+		'feed_holes'=>'',
 	);
 	$_REQUEST  = $smcFunc['db_query']('', "SELECT * FROM {db_prefix}hcb_craftdesign LIMIT 1");
 	$row = $smcFunc['db_fetch_assoc']($_REQUEST );
@@ -91,16 +87,22 @@ elseif (!defined('SMF'))
 		");
 		
 	// get rid of any old columns we don't need - if they exist
-	// $row has a list of all column
-	if (array_key_exists('cruiseWeight', $row)) 
-		$_REQUEST  = $smcFunc['db_query']('', "
-				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN cruiseWeight");
-	if (array_key_exists('designWeight', $row)) 
-		$_REQUEST  = $smcFunc['db_query']('', "
-				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN designWeight");
-	if (array_key_exists('rectShape', $row))
-		$_REQUEST  = $smcFunc['db_query']('', "
-				ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN rectShape");
+	// $row has a list of all columns
+	$oldcols = array(
+			'cruiseWeight', 
+			'designWeight', 
+			'rectShape', 
+			'hole1qty', 
+			'hole1size', 
+			'hole2qty', 
+			'hole2size', 
+			'hole3qty', 
+			'hole3size'
+		);
+	foreach ($oldcols as $col)
+		if (array_key_exists($col, $row)) 
+			$_REQUEST  = $smcFunc['db_query']('', "
+					ALTER TABLE {db_prefix}hcb_craftdesign DROP COLUMN " . $col);
 
 	
 	// create the hovercraft database table if it doesn't exist
