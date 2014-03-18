@@ -4,7 +4,10 @@
 	General form input stuff
 
 last update 28/10/13
-added function to handl mutiple text input boxes in $data array
+added function to handle mutiple text input slider boxes in $data array
+
+NOTE - this version of this file is ONLY for the CG calc - it 
+does NOT WORK  with the older performance calculator
 	
 */
 
@@ -201,14 +204,17 @@ function doMtextinput($var, $title, $descr, $cols = array(), $inputparms='')
 
 
 // validate a POST numeric string - default is greater than zero and less than 1M.
+//if $min is set then a value must exist, otherwise if value isn't set then it's not checked
 function validatenumber($var, $max = '1e6',$min = '0', $err='')
 {
-	// check for valid numbers and saves it into $data[$var]
 	// number must be within min and max if invalid adds error text ($err) into $err_array
 	global $err_array, $data;
-	get_post($var, '0'); // default to zero is not set
-	if ($data[$var] < $min OR $data[$var] > $max OR (!is_numeric($data[$var])))
-		$err_array[$var] = ($err ? $err : "Value must be greater than $min and less than $max");
+	get_post($var); // get value into $data array first
+	if (isset($data[$var]) AND ($data[$var]!='' OR $min != '0'))
+	{	
+		if ($data[$var] < $min OR $data[$var] > $max OR (!is_numeric($data[$var])))
+			$err_array[$var] = ($err ? $err : "Value must be" . ($min == 0 ? '' : " greater than $min and") . " less than $max");
+	}
 }
 
 function validateurl($var)

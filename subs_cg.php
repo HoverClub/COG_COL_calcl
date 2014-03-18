@@ -97,7 +97,7 @@
  There are three load cases for the cushion area and perimeter:
 
  1.	dual compartment - nose-heavy - where cushion area is at max size and pressure is as per weight
- 2. dual compartment - rear loading - where cushion area is rear-only therefore pressure is higher and peremeter smaller.
+ 2. dual compartment - rear loading - where cushion area is rear-only therefore pressure is higher and perimeter smaller.
  3. dual AND single compartment - maximum design weight with max cushion area & perimeter.
  
  We do the performance calcs on all three cases
@@ -154,10 +154,16 @@
 						($tailHvy_CoG['cog'] - $frontCushion['centroid']);
 		
 		// check that the change direction matches the front compartment air feed type!
-		if (($tailHvy_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // plennum pressueris so can't fall!
-			$err_array['feed_type'] = 'Pressure in front compartment has risen above the rear - not possible with an underskirt air feed. Change the feed type or move postions of rear-heavy load.';
+		if (($tailHvy_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // plenum pressure so can't fall!
+			$warning_array['dual_comp'] = 'Pressure in front compartment has risen above the rear in tail heavy case - not possible with an underskirt air feed. Change the feed type or move postions of rear-heavy load.';
 		elseif (($tailHvy_FrontCushion['area'] < $frontCushion['area']) AND $data['feed_type']!='underskirt') // skirt feed so can't rise!
-			$err_array['feed_type'] = 'Pressure in front campartment has fallen below the rear - this is not possible with an plenum air feed.   Change the feed type or move positions of rear-heavy load.';
+			$warning_array['dual_comp'] = 'Pressure in front campartment has fallen below the rear in tail heavy case - this is not possible with an plenum air feed.   Change the feed type or move positions of rear-heavy load.';
+
+		// check that the change direction matches the front compartment air feed type!
+		if (($maxLoad_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // plenum pressure so can't fall!
+			$warning_array['dual_comp'] = 'Pressure in front compartment has risen above the rear in maximum load case - not possible with an underskirt air feed. Change the feed type or move postions of rear-heavy load.';
+		elseif (($maxLoad_FrontCushion['area'] < $frontCushion['area']) AND $data['feed_type']!='underskirt') // skirt feed so can't rise!
+			$warning_array['dual_comp'] = 'Pressure in front campartment has fallen below the rear in maximum load case - this is not possible with an plenum air feed.   Change the feed type or move positions of rear-heavy load.';
 
 		// nose-heavy case
 		$noseHvy_FrontCushion['area'] = (($rearCushion['area'] * $rearCushion['centroid']) - ($rearCushion['area'] * $noseHvy_CoG['cog']))
@@ -166,9 +172,9 @@
 		
 		// check that the change direction matches the front compartment air feed type!
 		if (($noseHvy_FrontCushion['area'] > $frontCushion['area']) AND $data['feed_type']=='underskirt') // plenum pressure max - so can't fall!
-			$err_array['feed_type'] = 'Pressure in front compartment has risen above the rear - not possible with an underskirt air feed. Change the feed type or move nose-heavy load positions.';
+			$warning_array['dual_comp'] = 'Pressure in front compartment has risen above the rear in nose heavy case - not possible with an underskirt air feed. Change the feed type or move nose-heavy load positions.';
 		elseif (($noseHvy_FrontCushion['area'] <<$frontCushion['area']) AND $data['feed_type']!='underskirt') // skirt feed so can't rise!
-			$err_array['feed_type'] = 'Pressure in front campartment has fallen below the rear - this is not possible with a plenum air feed.  Change the feed type or move nose-heavy load positions.';
+			$warning_array['dual_comp'] = 'Pressure in front campartment has fallen below the rear in nose heavy case - this is not possible with a plenum air feed.  Change the feed type or move nose-heavy load positions.';
 		
 		
 		// calculate the pressures in each compartment from the relative change in the area
@@ -182,7 +188,7 @@
 		$tailHvy_FrontCushion['pressure'] = ($tailHvy_FrontCushion['area'] * $tailHvy_RearCushion['pressure']) / $rearCushion['area'];
 		
 /*
-Air flow will depend on the skirt gap in each compartment
+Air flow & lift power will depend on the skirt gap & pressure in each compartment
 
 Dual compartment front compartment feed type:
 	
@@ -196,8 +202,8 @@ Dual compartment front compartment feed type:
 			Using rear comp. pressure and skirt gap (rear external sides only), calc the flow rate and ADD onto front flow (it comes from the rear comp.).  Then calculate the power from the flow rate and pressure.
 
 	Plenum fed front :
-			Calc the flow feed rate from the FRONT to the REAR using the pressure difference across the divider (front must be equal to OR higher than rear) and the divider length.  The front external flow rate must be the same so we can add this to the rear compartment flow rate (external sides only).  The plenum must be at least the same pressure as the front compartment and will be equal to the rear (same plenum!!) - front feed holes can be calculated using front comp pressure and flow rate.
-
+		Calc the flow feed rate from the FRONT to the REAR using the pressure difference across the divider (front must be equal to OR higher than rear) and the divider length.  It should then be ADDED to the rear external loss.  The plenum must be at least the same pressure as the front compartment and will be equal to the rear (same plenum!!) - front feed holes can be calculated using front comp pressure and flow rate.
+ 
 				
 Single compartment:
 	Direct feed:
@@ -209,7 +215,7 @@ Single compartment:
 */
 
 		// calculate air flow through each compartment
-		// air flow is loss from the external (atmosphere exposed) sides of the cusion area PLUS (or minus) the loss/gain from the divider
+		// air flow is loss from the external (atmosphere exposed) sides of the cushion area PLUS (or minus) the loss/gain from the divider
 		$maxLoad_FrontCushion['airflow'] = 
 			liftAirFlow($data['skirtGap'], $frontSect['ext_perimeter'] + $bowSeg['ext_perimeter'], $maxLoad_FrontCushion['pressure'], $data['skirt']);
 			+

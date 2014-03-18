@@ -226,6 +226,10 @@
 		</table>
 		';
 
+		if (!empty($warning_array))
+			foreach ($warning_array as $warning)
+				echo '<br /><span class="smalltext" style="color:red;">' . $warning . '</span>';
+
 		// can craft get over hump speed?
 		if ($maxSpeed<=$maxPeak['mph'])
 			echo '<br/><span style="color:red;text-align:center;">WARNING<br/>This craft design will NOT be able to exceed hump speed!  Try increasing the craft size/engine power or reducing the weight.</span>';
@@ -359,7 +363,7 @@
 	$cols = array(	'qty'=>array('title'=> 'Qty', 'size'=>3),
 					'title'=>array('title'=> 'Item Name','size'=>23),
 					'M'=>array('title'=> 'Weight','size'=>4),
-					'X'=>array('title'=> 'Distance from bow(m)', 'type'=>'range', 'min'=>0, 'max'=> $data['hullLength'] + 1, 'step'=>0.1,),
+					'X'=>array('title'=> 'Distance from bow(m)<br><div>bow<div style="float:right;">stern</div></div>', 'type'=>'range', 'min'=>0, 'max'=> $data['hullLength'] + 1, 'step'=>0.1,),
 					);
 	doMtextinput('hull','Hull Components','Items that are contained in the craft hull. Initial items shown are just examples - you can edit or remove them (set the quantity to zero) if you wish (to remove an item set the quantity to zero).', $cols, $dis);
 	doMtextinput('engines','Engines & Transmission Components','Engines, fans, frames, etc. used to lift or propel the craft. Initial items shown are just examples - you can edit or remove them if you wish (to remove an item set the quantity to zero).', $cols, $dis);
